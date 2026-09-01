@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright © 2026 Cristian Camargo Filho
+
 name: CI
 on:
   push: { branches: [main] }
@@ -22,3 +25,18 @@ jobs:
       - run: npm test
       - run: npm run check
       - run: npm pack --dry-run
+  language-placeholders:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with: { go-version: "1.22.x" }
+      - name: Test Go placeholder
+        working-directory: placeholders/go
+        run: go test ./...
+      - name: Configure C and C++ placeholder
+        run: cmake -S placeholders/cpp -B build/placeholders/cpp -DBUILD_TESTING=ON
+      - name: Build C and C++ placeholder
+        run: cmake --build build/placeholders/cpp
+      - name: Test C and C++ placeholder
+        run: ctest --test-dir build/placeholders/cpp --output-on-failure

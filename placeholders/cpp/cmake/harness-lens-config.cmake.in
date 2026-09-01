@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright © 2026 Cristian Camargo Filho
+
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/harness-lens-targets.cmake")
+check_required_components(harness-lens)
