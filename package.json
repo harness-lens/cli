@@ -47,7 +47,7 @@
     "validation"
   ],
   "author": "Cristian Camargo Filho",
-  "license": "BSD-3-Clause",
+  "license": "MPL-2.0",
   "dependencies": {
     "@harness-lens/core": "^0.0.1"
   },
