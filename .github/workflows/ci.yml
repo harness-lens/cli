@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
 jobs:
-  test:
+  typescript:
     runs-on: ubuntu-latest
     strategy:
       matrix: { node-version: [20, 22, 24] }
@@ -25,6 +25,21 @@ jobs:
       - run: npm test
       - run: npm run check
       - run: npm pack --dry-run
+  rust:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: clippy, rustfmt }
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: rust }
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo test --locked
+      - run: cargo run --locked -- --version
   language-placeholders:
     runs-on: ubuntu-latest
     steps:

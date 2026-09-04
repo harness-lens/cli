@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright © 2026 Cristian Camargo Filho
+
+[package]
+name = "harness-lens-cli"
+description = "Headless command-line entry point for Harness Lens"
+version = "0.0.1"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Cristian Camargo Filho <ccf@cdone.com.br>"]
+license = "MPL-2.0"
+repository = "https://github.com/harness-lens/cli"
+homepage = "https://github.com/harness-lens/cli"
+readme = "README.md"
+keywords = ["harness", "agents", "cli", "scanner"]
+publish = true
+
+[[bin]]
+name = "harness-lens"
+path = "src/main.rs"
+
+[dependencies]
+harness-lens = { version = "0.0.1", git = "https://github.com/harness-lens/sdk.git", rev = "d31310754a7b791a4dedc0447eb3441d7219bd38" }
+serde_json = "1.0"
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"
