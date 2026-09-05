@@ -14,21 +14,40 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "LICENSE", "README.md"],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",
     "prepack": "npm run build",
     "test": "npm run build && node --test test/*.test.mjs"
   },
-  "engines": { "node": ">=20" },
-  "publishConfig": { "access": "public", "provenance": true },
-  "repository": { "type": "git", "url": "https://github.com/harness-lens/cli.git" },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/harness-lens/cli.git"
+  },
   "homepage": "https://github.com/harness-lens/cli#readme",
-  "bugs": { "url": "https://github.com/harness-lens/cli/issues" },
-  "keywords": ["agents", "harness", "cli", "validation"],
+  "bugs": {
+    "url": "https://github.com/harness-lens/cli/issues"
+  },
+  "keywords": [
+    "agents",
+    "harness",
+    "cli",
+    "validation"
+  ],
   "author": "Cristian Camargo Filho",
-  "license": "BSD-3-Clause",
+  "license": "MPL-2.0",
   "dependencies": {
     "@harness-lens/core": "^0.0.1"
   },
