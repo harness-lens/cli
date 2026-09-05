@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix: { node-version: [20, 22, 24] }
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with: { node-version: "${{ matrix.node-version }}" }
       - name: Bootstrap unpublished core
@@ -43,7 +43,7 @@ jobs:
   language-placeholders:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with: { go-version: "1.22.x" }
       - name: Test Go placeholder
