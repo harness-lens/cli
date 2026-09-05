@@ -56,6 +56,26 @@ test("forwards invocation-aware input pricing to the scanner", async () => {
   assert.deepEqual(received.evaluation, {
     inputCostPerMillionTokens: 2,
     invocations: 10,
-    costReference: undefined,
   });
+});
+
+test("omits absent evaluation settings when linking strict Core types", async () => {
+  for (const [args, expected] of [
+    [[], {}],
+    [["--invocations", "10"], { evaluation: { invocations: 10 } }],
+    [["--input-cost-per-million-tokens", "2"], { evaluation: { inputCostPerMillionTokens: 2 } }],
+    [["--cost-reference", "example-rate"], { evaluation: { costReference: "example-rate" } }],
+  ]) {
+    let received;
+    await runCli(["scan", "/repo/example", ...args], {
+      stdout: () => {},
+      stderr: () => {},
+    }, {
+      scan: async (_repository, options) => {
+        received = options;
+        return report;
+      },
+    });
+    assert.deepEqual(received, expected);
+  }
 });

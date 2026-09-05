@@ -93,9 +93,9 @@ export async function runCli(
   const evaluation = inputRateText === undefined && invocationText === undefined && costReference === undefined
     ? undefined
     : {
-      inputCostPerMillionTokens: inputRateText === undefined ? undefined : Number(inputRateText),
-      invocations: invocationText === undefined ? undefined : Number(invocationText),
-      costReference,
+      ...(inputRateText === undefined ? {} : { inputCostPerMillionTokens: Number(inputRateText) }),
+      ...(invocationText === undefined ? {} : { invocations: Number(invocationText) }),
+      ...(costReference === undefined ? {} : { costReference }),
     };
   const report = await dependencies.scan(repository, {
     ...(profile ? { profile } : {}),
