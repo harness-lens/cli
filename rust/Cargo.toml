@@ -20,7 +20,7 @@ name = "harness-lens"
 path = "src/main.rs"
 
 [dependencies]
-harness-lens = { version = "0.0.1", git = "https://github.com/harness-lens/sdk.git", rev = "add963aab126f12e4799ec459ad207efa75906c1" }
+harness-lens = { version = "0.0.1", git = "https://github.com/harness-lens/sdk.git", rev = "afa8ad7a063cef90d5355a6ea528a58eb8799c04" }
 serde_json = "1.0"
 
 [lints.rust]
