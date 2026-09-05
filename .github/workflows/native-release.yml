@@ -1,0 +1,442 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright © 2026 Cristian Camargo Filho
+
+name: Native release and distribution
+
+on:
+  push:
+    tags: ["v[0-9]*.[0-9]*.[0-9]*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing v-prefixed tag to build
+        required: true
+        type: string
+      publish:
+        description: Create the GitHub release and push the GHCR image
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: native-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  metadata:
+    runs-on: ubuntu-24.04
+    outputs:
+      publish: ${{ steps.release.outputs.publish }}
+      sha: ${{ steps.release.outputs.sha }}
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          persist-credentials: false
+      - name: Validate tag and crate version
+        id: release
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          REQUESTED_PUBLISH: ${{ inputs.publish }}
+          WORKFLOW_REF_NAME: ${{ github.ref_name }}
+          WORKFLOW_REF_TYPE: ${{ github.ref_type }}
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Invalid release tag: $RELEASE_TAG" >&2
+            exit 1
+          fi
+          if [[ "$WORKFLOW_REF_TYPE" != "tag" || "$WORKFLOW_REF_NAME" != "$RELEASE_TAG" ]]; then
+            echo "Run this workflow from the same tag named by the input: $RELEASE_TAG" >&2
+            exit 1
+          fi
+          version="${RELEASE_TAG#v}"
+          crate_version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' rust/Cargo.toml | head -n 1)"
+          if [[ "$version" != "$crate_version" ]]; then
+            echo "Tag $RELEASE_TAG does not match crate version $crate_version" >&2
+            exit 1
+          fi
+          source_sha="$(git rev-parse HEAD)"
+          event_sha="$(git rev-parse "${GITHUB_SHA}^{commit}")"
+          if [[ "$source_sha" != "$event_sha" ]]; then
+            echo "Checked-out tag SHA does not match the workflow event SHA." >&2
+            exit 1
+          fi
+          publish=false
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && "$REQUESTED_PUBLISH" == "true" ]]; then
+            publish=true
+          fi
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build-native:
+    needs: metadata
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: aarch64-apple-darwin
+            executable: harness-lens
+            archive: tar.gz
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            executable: harness-lens
+            archive: tar.gz
+          - os: windows-2025
+            target: x86_64-pc-windows-msvc
+            executable: harness-lens.exe
+            archive: zip
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            executable: harness-lens
+            archive: tar.gz
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.metadata.outputs.tag }}
+          persist-credentials: false
+      - name: Select Rust 1.85 toolchain
+        shell: bash
+        run: |
+          rustup toolchain install 1.85.1 --profile minimal
+          rustup default 1.85.1
+          rustup target add "${{ matrix.target }}"
+      - name: Build and smoke-test native CLI
+        shell: bash
+        env:
+          VERSION: ${{ needs.metadata.outputs.version }}
+        run: |
+          cargo build --locked --release --manifest-path rust/Cargo.toml --target "${{ matrix.target }}"
+          actual_version="$("rust/target/${{ matrix.target }}/release/${{ matrix.executable }}" --version)"
+          if [[ "$actual_version" != "harness-lens ${VERSION}" ]]; then
+            echo "Binary reported unexpected version: $actual_version" >&2
+            exit 1
+          fi
+      - name: Package native CLI
+        shell: bash
+        env:
+          ARCHIVE_FORMAT: ${{ matrix.archive }}
+          EXECUTABLE: ${{ matrix.executable }}
+          TARGET: ${{ matrix.target }}
+          VERSION: ${{ needs.metadata.outputs.version }}
+        run: |
+          archive="harness-lens-v${VERSION}-${TARGET}.${ARCHIVE_FORMAT}"
+          mkdir -p dist/stage
+          cp "rust/target/${TARGET}/release/${EXECUTABLE}" dist/stage/
+          cp README.md LICENSE COPYRIGHT dist/stage/
+          node --input-type=module -e '
+            import { readdir } from "node:fs/promises";
+            const expected = ["COPYRIGHT", "LICENSE", "README.md", process.env.EXECUTABLE].sort();
+            const actual = (await readdir("dist/stage")).sort();
+            if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+              throw new Error(`unexpected archive content: ${actual.join(", ")}`);
+            }
+          '
+          if [[ "$ARCHIVE_FORMAT" == "zip" ]]; then
+            (cd dist/stage && 7z a -tzip "../${archive}" ./*)
+          else
+            tar -C dist/stage -czf "dist/${archive}" .
+          fi
+          node scripts/generate-cyclonedx.mjs "$TARGET" "dist/${archive}.cdx.json"
+      - name: Attest build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: dist/harness-lens-v*-${{ matrix.target }}.${{ matrix.archive }}
+      - name: Attest SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: dist/harness-lens-v*-${{ matrix.target }}.${{ matrix.archive }}
+          sbom-path: dist/harness-lens-v*-${{ matrix.target }}.${{ matrix.archive }}.cdx.json
+      - name: Preserve native artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-${{ matrix.target }}
+          path: dist/harness-lens-v*-${{ matrix.target }}.*
+          if-no-files-found: error
+          retention-days: 30
+
+  homebrew:
+    name: Build Homebrew tap package
+    needs: [metadata, build-native]
+    runs-on: macos-15
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.metadata.outputs.tag }}
+          persist-credentials: false
+      - name: Download native artifacts
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          pattern: native-*
+          path: dist/native
+          merge-multiple: true
+      - name: Generate and validate formula
+        run: |
+          node scripts/generate-checksums.mjs dist/native dist/SHA256SUMS
+          node scripts/generate-distribution-packages.mjs "${{ needs.metadata.outputs.version }}" dist/SHA256SUMS dist/generated
+          ruby -c dist/generated/homebrew/Formula/harness-lens.rb
+      - name: Preserve checksums
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-checksums
+          path: dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve Homebrew formula
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: homebrew-tap
+          path: dist/generated/homebrew
+          if-no-files-found: error
+          retention-days: 30
+
+  windows-packages:
+    name: Build WinGet, Scoop, and Chocolatey packages
+    needs: [metadata, build-native, homebrew]
+    runs-on: windows-2025
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.metadata.outputs.tag }}
+          persist-credentials: false
+      - name: Download release checksums
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: release-checksums
+          path: dist
+      - name: Generate Windows packages
+        shell: pwsh
+        run: |
+          node scripts/generate-distribution-packages.mjs '${{ needs.metadata.outputs.version }}' dist/SHA256SUMS dist/generated
+          Get-Content dist/generated/scoop/harness-lens.json -Raw | ConvertFrom-Json | Out-Null
+          Push-Location dist/generated/chocolatey
+          choco pack harness-lens.nuspec --output-directory .
+          Pop-Location
+      - name: Preserve Windows packages
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-packages
+          path: |
+            dist/generated/winget
+            dist/generated/scoop
+            dist/generated/chocolatey
+          if-no-files-found: error
+          retention-days: 30
+
+  assemble-release:
+    name: Assemble signed release
+    needs: [metadata, build-native, homebrew, windows-packages]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.metadata.outputs.tag }}
+          persist-credentials: false
+      - name: Download native artifacts
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          pattern: native-*
+          path: release
+          merge-multiple: true
+      - name: Download Homebrew tap package
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: homebrew-tap
+          path: staging/homebrew
+      - name: Download Windows packages
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: windows-packages
+          path: staging/windows
+      - name: Assemble distribution assets
+        shell: bash
+        env:
+          VERSION: ${{ needs.metadata.outputs.version }}
+        run: |
+          tar -C staging/homebrew -czf "release/harness-lens-homebrew-tap-v${VERSION}.tar.gz" .
+          (cd staging/windows/winget && zip -qr "../../../release/harness-lens-winget-v${VERSION}.zip" .)
+          cp staging/windows/scoop/harness-lens.json "release/harness-lens-scoop-v${VERSION}.json"
+          cp staging/windows/chocolatey/*.nupkg release/
+          node scripts/generate-checksums.mjs release release/SHA256SUMS
+      - name: Attest assembled assets
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-checksums: release/SHA256SUMS
+      - name: Preserve complete dry-run bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: harness-lens-${{ needs.metadata.outputs.tag }}-release
+          path: release
+          if-no-files-found: error
+          retention-days: 30
+  publish-release:
+    name: Publish protected GitHub release
+    needs: [metadata, assemble-release]
+    if: needs.metadata.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - name: Download assembled release
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: harness-lens-${{ needs.metadata.outputs.tag }}-release
+          path: release
+      - name: Publish immutable GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+          VERSION: ${{ needs.metadata.outputs.version }}
+        run: |
+          if ! gh api \
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            "repos/${GITHUB_REPOSITORY}/immutable-releases" >/dev/null; then
+            echo "Release immutability must be enabled before publication." >&2
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --generate-notes \
+            --title "Harness Lens CLI v${VERSION}" \
+            --draft
+          gh release upload "$RELEASE_TAG" release/* --repo "$GITHUB_REPOSITORY"
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+
+  publish-homebrew-tap:
+    name: Update harness-lens/homebrew-tap
+    needs: [metadata, publish-release]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Report disabled tap publishing
+        if: vars.HOMEBREW_TAP_PUBLISH_ENABLED != 'true'
+        run: echo "Homebrew tap publishing is disabled by repository policy."
+      - name: Mint installation token from the Harness Lens GitHub App
+        if: vars.HOMEBREW_TAP_PUBLISH_ENABLED == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ secrets.HARNESS_LENS_APP_ID }}
+          private-key: ${{ secrets.HARNESS_LENS_APP_PRIVATE_KEY }}
+          owner: harness-lens
+          repositories: homebrew-tap
+      - name: Download reviewed Homebrew formula
+        if: vars.HOMEBREW_TAP_PUBLISH_ENABLED == 'true'
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: homebrew-tap
+          path: generated
+      - name: Check out Homebrew tap
+        if: vars.HOMEBREW_TAP_PUBLISH_ENABLED == 'true'
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: harness-lens/homebrew-tap
+          token: ${{ steps.app-token.outputs.token }}
+          path: tap
+          persist-credentials: true
+      - name: Publish reviewed formula
+        if: vars.HOMEBREW_TAP_PUBLISH_ENABLED == 'true'
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+        run: |
+          if [[ -f tap/Formula/harness-lens.rb ]] && cmp -s generated/Formula/harness-lens.rb tap/Formula/harness-lens.rb; then
+            echo "Formula is already current."
+            exit 0
+          fi
+          mkdir -p tap/Formula
+          cp generated/Formula/harness-lens.rb tap/Formula/harness-lens.rb
+          cd tap
+          git config user.name "harness-lens-release[bot]"
+          git config user.email "harness-lens-release[bot]@users.noreply.github.com"
+          git add Formula/harness-lens.rb
+          git commit -m "harness-lens ${RELEASE_TAG}"
+          git push origin HEAD:main
+
+  publish-ghcr:
+    name: Publish GHCR scanner image
+    needs: [metadata, publish-release, publish-homebrew-tap]
+    if: needs.metadata.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    env:
+      IMAGE: ghcr.io/harness-lens/cli
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.metadata.outputs.tag }}
+          persist-credentials: false
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Configure QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - name: Configure Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Define immutable image tags
+        id: metadata
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=${{ needs.metadata.outputs.version }}
+            type=raw,value=sha-${{ needs.metadata.outputs.sha }}
+          labels: |
+            org.opencontainers.image.version=${{ needs.metadata.outputs.version }}
+            org.opencontainers.image.revision=${{ needs.metadata.outputs.sha }}
+      - name: Build and publish scanner image
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: Containerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          provenance: mode=max
+          sbom: true
+      - name: Attest GHCR image
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true

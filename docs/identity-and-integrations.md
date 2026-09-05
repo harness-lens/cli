@@ -3,16 +3,16 @@
 
 # Product identity and integration readiness
 
-Status: 2026-08-30. This inventory records accounts and namespaces reported as
+Status: 2026-09-05. This inventory records accounts and namespaces reported as
 controlled by Harness Lens.
 
 ## Controlled identities
 
 | Surface | Identity | Purpose |
 | --- | --- | --- |
-| GitHub | `harness-lens` organization | Source, releases, Actions, packages, and future GitHub App ownership. |
-| GitHub | GitHub App(s) owned by the organization | Future repository installation, webhooks, Checks, and status integration. |
-| Domain | Reported as `harness-les.com` | Confirm intended canonical spelling before using it in public links, OAuth callbacks, email, or package metadata. |
+| GitHub | `harness-lens` organization | Source, releases, Actions, and packages. |
+| GitHub | GitHub App(s) owned by the organization | Existing App ownership for repository installation, webhooks, Checks, and release automation. |
+| Domain | `harness-les.com` (reported official) | Controlled domain for documentation and future callbacks; keep renewal, MFA, and DNS ownership evidence current. |
 | npm | `@harness-lens` organization | Namespace for TypeScript packages, including clients and editor-extension dependencies. |
 | crates.io | `harness-lens` ownership | Rust crate publishing identity. Intended public crates: `harness-lens`, `harness-lens-core`, and `harness-lens-cli`. |
 | Visual Studio Marketplace | Harness Lens publisher | Publish the real VS Code extension. |

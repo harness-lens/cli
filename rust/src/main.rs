@@ -7,6 +7,8 @@ use std::path::PathBuf;
 
 use harness_lens::{Scanner, load_for_root};
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 fn main() {
     if let Err(error) = run(std::env::args().skip(1)) {
         eprintln!("harness-lens: {error}");
@@ -24,7 +26,7 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<(), String> {
         match argument.as_str() {
             "--json" => json = true,
             "--version" | "-V" => {
-                println!("harness-lens {}", harness_lens::VERSION);
+                println!("harness-lens {VERSION}");
                 return Ok(());
             }
             "--config" => {
@@ -73,6 +75,6 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<(), String> {
 fn print_help() {
     println!(
         "Harness Lens {}\n\nUsage: harness-lens [PATH] [--config FILE] [--json]",
-        harness_lens::VERSION
+        VERSION
     );
 }

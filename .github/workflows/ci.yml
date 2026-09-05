@@ -33,13 +33,26 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
-        with: { components: clippy, rustfmt }
+        with: { components: "clippy,rustfmt" }
       - uses: Swatinem/rust-cache@v2
         with: { workspaces: rust }
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --locked -- -D warnings
       - run: cargo test --locked
       - run: cargo run --locked -- --version
+  container:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Build pinned scanner image
+        run: docker build --file Containerfile --tag harness-lens-cli:test .
+      - name: Verify non-root runtime and CLI version
+        run: |
+          test "$(docker run --rm --entrypoint id harness-lens-cli:test -u)" = "65532"
+          version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' rust/Cargo.toml | head -n 1)"
+          test "$(docker run --rm harness-lens-cli:test --version)" = "harness-lens ${version}"
   language-placeholders:
     runs-on: ubuntu-latest
     steps:
