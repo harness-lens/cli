@@ -26,7 +26,7 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<(), String> {
         match argument.as_str() {
             "--json" => json = true,
             "--version" | "-V" => {
-                println!("harness-lens {}", harness_lens::VERSION);
+                println!("harness-lens {VERSION}");
                 return Ok(());
             }
             "--config" => {
@@ -75,6 +75,6 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<(), String> {
 fn print_help() {
     println!(
         "Harness Lens {}\n\nUsage: harness-lens [PATH] [--config FILE] [--json]",
-        harness_lens::VERSION
+        VERSION
     );
 }
