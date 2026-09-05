@@ -10,11 +10,25 @@ remains available to npm users.
 ```bash
 npx @harness-lens/cli scan . --profile coding-agent/v1
 npx @harness-lens/cli scan . --json
+npx @harness-lens/cli scan . --input-cost-per-million-tokens 2.5 --invocations 100 --cost-reference provider/model-input-rate
 npx @harness-lens/cli tui .
 npx @harness-lens/cli compare before.json after.json
 ```
 
 `scan` and the initial overview renderer are functional. The first `tui` command renders the same overview without an interactive event loop. Tabs, persistence, and Git-revision snapshot loading are planned.
+
+The JSON and native CLI reports expose exact-duplicate counts, per-source byte
+and token measurements, soft size/token budget findings, and—when configured—
+input cost per invocation and total input cost.
+
+The native CLI reads the same evaluation settings from `harness-lens.toml`:
+
+```toml
+[evaluation]
+invocations = 100
+input_cost_per_million_tokens = 2.5
+cost_reference = "provider/model-input-rate"
+```
 
 `--ai` never changes deterministic findings or metrics. Until an interpreter is configured, it emits a notice and preserves the report.
 

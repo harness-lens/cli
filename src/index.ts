@@ -23,7 +23,7 @@ const DEFAULT_IO: CliIo = {
 function usage(): string {
   return [
     "Usage:",
-    "  harness-lens scan [path] [--profile coding-agent/v1] [--json] [--ai]",
+    "  harness-lens scan [path] [--profile coding-agent/v1] [--input-cost-per-million-tokens RATE] [--invocations N] [--cost-reference ID] [--json] [--ai]",
     "  harness-lens tui [path] [--profile coding-agent/v1]",
     "  harness-lens compare <before.json> <after.json> [--json]",
   ].join("\n");
@@ -32,6 +32,19 @@ function usage(): string {
 function option(args: string[], name: string): string | undefined {
   const index = args.indexOf(name);
   return index >= 0 ? args[index + 1] : undefined;
+}
+
+function positionalArgument(args: string[]): string | undefined {
+  const valueOptions = new Set(["--profile", "--input-cost-per-million-tokens", "--invocations", "--cost-reference"]);
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+    if (!argument?.startsWith("--")) {
+      if (index === 0 || !valueOptions.has(args[index - 1] ?? "")) return argument;
+      continue;
+    }
+    if (valueOptions.has(argument)) index += 1;
+  }
+  return undefined;
 }
 
 async function readReport(file: string): Promise<HarnessReport> {
@@ -71,10 +84,23 @@ export async function runCli(
     return 2;
   }
 
-  const positional = args.find((arg, index) => !arg.startsWith("--") && args[index - 1] !== "--profile");
+  const positional = positionalArgument(args);
   const repository = positional ?? process.cwd();
   const profile = option(args, "--profile");
-  const report = await dependencies.scan(repository, profile ? { profile } : {});
+  const inputRateText = option(args, "--input-cost-per-million-tokens");
+  const invocationText = option(args, "--invocations");
+  const costReference = option(args, "--cost-reference");
+  const evaluation = inputRateText === undefined && invocationText === undefined && costReference === undefined
+    ? undefined
+    : {
+      inputCostPerMillionTokens: inputRateText === undefined ? undefined : Number(inputRateText),
+      invocations: invocationText === undefined ? undefined : Number(invocationText),
+      costReference,
+    };
+  const report = await dependencies.scan(repository, {
+    ...(profile ? { profile } : {}),
+    ...(evaluation ? { evaluation } : {}),
+  });
   io.stdout(args.includes("--json") ? JSON.stringify(report, null, 2) : formatReport(report));
   if (args.includes("--ai")) {
     io.stderr("AI interpretation not configured; deterministic report unchanged.");

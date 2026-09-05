@@ -59,8 +59,19 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<(), String> {
             summary.sources,
             report.root.display()
         );
-        for source in report.sources {
+        for source in &report.sources {
             println!("- {}", source.path.display());
+        }
+        for metric in &report.metrics {
+            if metric.name.starts_with("harness.total_")
+                || metric.name.starts_with("harness.input_cost_")
+                || metric.name == "harness.exact_duplicate_lines_or_paragraphs"
+                || metric.name == "harness.large_sources"
+                || metric.name == "harness.over_elaborated_sources"
+            {
+                let unit = metric.unit.as_deref().unwrap_or("");
+                println!("{}: {} {}", metric.name, metric.value, unit);
+            }
         }
         if summary.diagnostics > 0 {
             println!("{} warning/error finding(s)", summary.diagnostics);

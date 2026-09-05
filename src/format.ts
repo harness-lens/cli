@@ -9,7 +9,18 @@ function percentage(value: number): string {
 }
 
 function evaluation(metric: MetricEvaluation): string {
-  if (metric.status === "not-evaluated" || metric.score === null) return "Not evaluated";
+  if (metric.status === "not-evaluated") return "Not evaluated";
+  if (metric.score === null && metric.details && typeof metric.details === "object") {
+    const details = metric.details as {
+      inputCostPerInvocation?: number;
+      inputCostTotal?: number;
+      currency?: string;
+    };
+    if (details.inputCostPerInvocation !== undefined && details.inputCostTotal !== undefined) {
+      return `${details.currency ?? "USD"} ${details.inputCostPerInvocation.toFixed(6)}/invocation; ${details.currency ?? "USD"} ${details.inputCostTotal.toFixed(6)} total`;
+    }
+  }
+  if (metric.score === null) return "Evaluated";
   return `${percentage(metric.score)}${metric.reference ? ` — ${metric.reference}` : ""}`;
 }
 
@@ -23,6 +34,10 @@ export function formatReport(report: HarnessReport): string {
   const warnings = report.findings.filter((finding) => finding.severity === "warn").length;
   const errors = report.findings.filter((finding) => finding.severity === "fail").length;
   const primary = report.files[0]?.path ? path.relative(report.repository, report.files[0].path) : "None";
+  const extendedMetrics = report.metrics as typeof report.metrics & {
+    duplicates?: { lines: number; paragraphs: number };
+    budgets?: { tooLarge: number; overElaborated: number };
+  };
   const rows: Array<[string, string]> = [
     ["Repository", path.basename(report.repository)],
     ["Harness files", String(report.files.length)],
@@ -35,6 +50,9 @@ export function formatReport(report: HarnessReport): string {
     ["Alignment", evaluation(report.metrics.alignment)],
     ["Redundancy", percentage(report.metrics.redundancy)],
     ["Conflicts", String(report.metrics.conflicts)],
+    ["Exact duplicates", `${extendedMetrics.duplicates?.lines ?? 0} lines · ${extendedMetrics.duplicates?.paragraphs ?? 0} paragraphs`],
+    ["Large sources", String(extendedMetrics.budgets?.tooLarge ?? 0)],
+    ["Over-elaborated", String(extendedMetrics.budgets?.overElaborated ?? 0)],
     ["Findings", `${warnings} warnings · ${errors} errors`],
   ];
   const width = Math.max(...rows.map(([label]) => label.length));

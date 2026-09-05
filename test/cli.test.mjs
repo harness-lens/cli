@@ -41,3 +41,21 @@ test("returns usage errors for unknown commands", async () => {
   assert.equal(code, 2);
   assert.match(errors[0], /Unknown command/);
 });
+
+test("forwards invocation-aware input pricing to the scanner", async () => {
+  let received;
+  await runCli(["scan", "/repo/example", "--input-cost-per-million-tokens", "2", "--invocations", "10"], {
+    stdout: () => {},
+    stderr: () => {},
+  }, {
+    scan: async (_repository, options) => {
+      received = options;
+      return report;
+    },
+  });
+  assert.deepEqual(received.evaluation, {
+    inputCostPerMillionTokens: 2,
+    invocations: 10,
+    costReference: undefined,
+  });
+});
