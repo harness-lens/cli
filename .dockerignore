@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright © 2026 Cristian Camargo Filho
+
+.git
+.github
+dist
+node_modules
+rust/target
+test
+placeholders
+*.tgz

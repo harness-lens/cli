@@ -44,6 +44,15 @@ cargo test --locked
 cargo run -- --version
 ```
 
+## Native releases
+
+The release pipeline builds native macOS, Windows, and Linux archives with
+SHA-256 checksums, CycloneDX SBOMs, and signed GitHub attestations. Those same
+reviewed archives drive the Homebrew, WinGet, Scoop, and Chocolatey packages;
+the GHCR scanner image is published last. See
+[`docs/distribution.md`](docs/distribution.md) for the exact artifacts, review
+gate, registry handoffs, container restrictions, and retention policy.
+
 ## Language package placeholders
 
 Buildable staging packages for the future Go and C/C++ implementations live in

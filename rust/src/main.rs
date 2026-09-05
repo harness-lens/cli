@@ -7,6 +7,8 @@ use std::path::PathBuf;
 
 use harness_lens::{Scanner, load_for_root};
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 fn main() {
     if let Err(error) = run(std::env::args().skip(1)) {
         eprintln!("harness-lens: {error}");

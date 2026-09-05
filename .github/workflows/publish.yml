@@ -17,6 +17,16 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - run: npm install
+      - name: Verify release version
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          package_version="$(node --input-type=module -e 'import packageJson from "./package.json" with { type: "json" }; process.stdout.write(packageJson.version)')"
+          if [[ "$RELEASE_TAG" != "v${package_version}" ]]; then
+            echo "Release tag $RELEASE_TAG does not match npm version $package_version" >&2
+            exit 1
+          fi
+      - run: npm ci
       - run: npm test
       - run: npm publish --access public --provenance
