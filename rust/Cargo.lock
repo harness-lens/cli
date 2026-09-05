@@ -11,7 +11,7 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 [[package]]
 name = "harness-lens"
 version = "0.0.1"
-source = "git+https://github.com/harness-lens/sdk.git?rev=d31310754a7b791a4dedc0447eb3441d7219bd38#d31310754a7b791a4dedc0447eb3441d7219bd38"
+source = "git+https://github.com/harness-lens/sdk.git?rev=afa8ad7a063cef90d5355a6ea528a58eb8799c04#afa8ad7a063cef90d5355a6ea528a58eb8799c04"
 dependencies = [
  "harness-lens-config",
  "harness-lens-core",
@@ -28,18 +28,20 @@ dependencies = [
 [[package]]
 name = "harness-lens-config"
 version = "0.0.1"
-source = "git+https://github.com/harness-lens/sdk.git?rev=d31310754a7b791a4dedc0447eb3441d7219bd38#d31310754a7b791a4dedc0447eb3441d7219bd38"
+source = "git+https://github.com/harness-lens/sdk.git?rev=afa8ad7a063cef90d5355a6ea528a58eb8799c04#afa8ad7a063cef90d5355a6ea528a58eb8799c04"
 dependencies = [
  "harness-lens-core",
- "toml",
+ "toml 1.1.5+spec-1.1.0",
 ]
 
 [[package]]
 name = "harness-lens-core"
 version = "0.0.1"
-source = "git+https://github.com/harness-lens/core.git?rev=fef8ef34a0ab16ca9cea93ad7e35e63e57c52ccf#fef8ef34a0ab16ca9cea93ad7e35e63e57c52ccf"
+source = "git+https://github.com/harness-lens/core.git?rev=855598e5ef83b464aa799f8515d3a9170ac88abc#855598e5ef83b464aa799f8515d3a9170ac88abc"
 dependencies = [
  "serde",
+ "serde_yaml",
+ "toml 0.9.12+spec-1.1.0",
 ]
 
 [[package]]
@@ -87,6 +89,12 @@ checksum = "1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001"
 dependencies = [
  "proc-macro2",
 ]
+
+[[package]]
+name = "ryu"
+version = "1.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
 name = "serde"
@@ -141,6 +149,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_yaml"
+version = "0.9.34+deprecated"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
+dependencies = [
+ "indexmap",
+ "itoa",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
+]
+
+[[package]]
 name = "syn"
 version = "3.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -153,6 +174,21 @@ dependencies = [
 
 [[package]]
 name = "toml"
+version = "0.9.12+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf92845e79fc2e2def6a5d828f0801e29a2f8acc037becc5ab08595c7d5e9863"
+dependencies = [
+ "indexmap",
+ "serde_core",
+ "serde_spanned",
+ "toml_datetime 0.7.5+spec-1.1.0",
+ "toml_parser",
+ "toml_writer",
+ "winnow 0.7.15",
+]
+
+[[package]]
+name = "toml"
 version = "1.1.5+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12c0ba9680044b4ce98d391a62094047eada0d64860b80166c39f4a6b5640785"
@@ -160,10 +196,19 @@ dependencies = [
  "indexmap",
  "serde_core",
  "serde_spanned",
- "toml_datetime",
+ "toml_datetime 1.1.1+spec-1.1.0",
  "toml_parser",
  "toml_writer",
- "winnow",
+ "winnow 1.0.4",
+]
+
+[[package]]
+name = "toml_datetime"
+version = "0.7.5+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92e1cfed4a3038bc5a127e35a2d360f145e1f4b971b551a2ba5fd7aedf7e1347"
+dependencies = [
+ "serde_core",
 ]
 
 [[package]]
@@ -181,7 +226,7 @@ version = "1.1.3+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d38ac1cf9b95face32296c0a3ede1fdc270627c9d9c02a7274dd6d960dc4d56"
 dependencies = [
- "winnow",
+ "winnow 1.0.4",
 ]
 
 [[package]]
@@ -195,6 +240,18 @@ name = "unicode-ident"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
+
+[[package]]
+name = "unsafe-libyaml"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
+
+[[package]]
+name = "winnow"
+version = "0.7.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df79d97927682d2fd8adb29682d1140b343be4ac0f08fd68b7765d9c059d3945"
 
 [[package]]
 name = "winnow"
