@@ -26,8 +26,7 @@ including the 30-day retry window and partial-publication boundaries. Keep
 `HOMEBREW_TAP_PUBLISH_ENABLED=false` while preparing this change.
 
 As verified on 2026-09-07, existing tags are `v0.0.1` and `v0.0.2`, and neither
-has a GitHub release. `v0.0.2` contains the old direct-push workflow. After this
-change merges, bump Rust/npm versions and matching lockfile metadata in a
-reviewed version change; `v0.0.3` is the next available candidate at this
-checkpoint. Recheck remote tags/releases before reserving it. Never rewrite
-existing tags, and never dispatch publication from `v0.0.2` to test this change.
+has a GitHub release. `v0.0.2` contains the old direct-push workflow. Source and
+lockfile metadata now prepare `v0.0.3` as the next candidate. Recheck remote
+tags and releases before creating that tag. Never rewrite existing tags, and
+never dispatch publication from `v0.0.2` to test this change.
