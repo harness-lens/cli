@@ -25,8 +25,10 @@ Follow the [resume procedure](distribution.md#resume-ghcr-after-formula-review),
 including the 30-day retry window and partial-publication boundaries. Keep
 `HOMEBREW_TAP_PUBLISH_ENABLED=false` while preparing this change.
 
-As verified on 2026-09-07, existing tags are `v0.0.1` and `v0.0.2`, and neither
-has a GitHub release. `v0.0.2` contains the old direct-push workflow. Source and
-lockfile metadata now prepare `v0.0.3` as the next candidate. Recheck remote
-tags and releases before creating that tag. Never rewrite existing tags, and
-never dispatch publication from `v0.0.2` to test this change.
+As verified on 2026-09-07, existing remote Git tags are `v0.0.1` and `v0.0.2`,
+and neither has a GitHub release. `v0.0.2` contains the old direct-push workflow.
+Treat `v0.0.3` as consumed by prior immutable release state; it must not be
+reused. Source and lockfile metadata now prepare `v0.0.4` as the next candidate.
+Recheck remote tags, releases, and package registries before creating that tag.
+Never rewrite existing tags, and never dispatch publication from `v0.0.2` to
+test this change.
