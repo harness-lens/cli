@@ -24,7 +24,7 @@ Verify an archive after downloading it:
 
 ```bash
 sha256sum --check SHA256SUMS --ignore-missing
-gh attestation verify harness-lens-v0.0.1-x86_64-unknown-linux-gnu.tar.gz \
+gh attestation verify harness-lens-v0.0.2-x86_64-unknown-linux-gnu.tar.gz \
   --repo harness-lens/cli
 ```
 
@@ -120,7 +120,7 @@ Run the scanner with an explicitly constrained container:
 docker run --rm --network none --read-only --cap-drop ALL \
   --security-opt no-new-privileges \
   --mount "type=bind,src=$PWD,dst=/workspace,readonly" \
-  ghcr.io/harness-lens/cli:0.0.1 /workspace --json
+  ghcr.io/harness-lens/cli:0.0.2 /workspace --json
 ```
 
 The production retention policy is to retain every semantic-version tag,
