@@ -18,4 +18,16 @@ Native releases are separate from npm publication. Follow
 verify checksums/SBOM attestations, configure the protected `release`
 environment, and only then publish. The native workflow derives Homebrew,
 WinGet, Scoop, and Chocolatey packages from the reviewed binary checksums and
-publishes the GHCR scanner last.
+opens a protected Homebrew formula PR. GHCR stays blocked until that PR merges
+with both macOS checks successful; a maintainer then reruns failed jobs in the
+same publication run. The gate is rechecked after GHCR environment approval.
+Follow the [resume procedure](distribution.md#resume-ghcr-after-formula-review),
+including the 30-day retry window and partial-publication boundaries. Keep
+`HOMEBREW_TAP_PUBLISH_ENABLED=false` while preparing this change.
+
+As verified on 2026-09-07, existing tags are `v0.0.1` and `v0.0.2`, and neither
+has a GitHub release. `v0.0.2` contains the old direct-push workflow. After this
+change merges, bump Rust/npm versions and matching lockfile metadata in a
+reviewed version change; `v0.0.3` is the next available candidate at this
+checkpoint. Recheck remote tags/releases before reserving it. Never rewrite
+existing tags, and never dispatch publication from `v0.0.2` to test this change.

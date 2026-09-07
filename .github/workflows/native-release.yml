@@ -13,7 +13,7 @@ on:
         required: true
         type: string
       publish:
-        description: Create the GitHub release and push the GHCR image
+        description: Publish release assets and propose Homebrew (GHCR waits for merge)
         required: true
         default: false
         type: boolean
@@ -332,16 +332,29 @@ jobs:
           gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false
 
   publish-homebrew-tap:
-    name: Update harness-lens/homebrew-tap
+    name: Propose harness-lens/homebrew-tap update
     needs: [metadata, publish-release]
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
       - name: Report disabled tap publishing
         if: vars.HOMEBREW_TAP_PUBLISH_ENABLED != 'true'
-        run: echo "Homebrew tap publishing is disabled by repository policy."
-      - name: Mint installation token from the Harness Lens GitHub App
+        run: echo "Homebrew tap publishing is disabled; GHCR remains blocked."
+      - name: Check out release source
+        if: vars.HOMEBREW_TAP_PUBLISH_ENABLED == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.metadata.outputs.sha }}
+          persist-credentials: false
+      - name: Download original reviewed release
+        if: vars.HOMEBREW_TAP_PUBLISH_ENABLED == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: harness-lens-${{ needs.metadata.outputs.tag }}-release
+          path: release
+      - name: Mint scoped tap installation token
         if: vars.HOMEBREW_TAP_PUBLISH_ENABLED == 'true'
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
@@ -350,43 +363,70 @@ jobs:
           private-key: ${{ secrets.HARNESS_LENS_APP_PRIVATE_KEY }}
           owner: harness-lens
           repositories: homebrew-tap
-      - name: Download reviewed Homebrew formula
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Create or reuse reviewed formula PR
         if: vars.HOMEBREW_TAP_PUBLISH_ENABLED == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: homebrew-tap
-          path: generated
-      - name: Check out Homebrew tap
-        if: vars.HOMEBREW_TAP_PUBLISH_ENABLED == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAP_TOKEN: ${{ steps.app-token.outputs.token }}
+          HOMEBREW_TAP_PUBLISH_ENABLED: ${{ vars.HOMEBREW_TAP_PUBLISH_ENABLED }}
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+          RELEASE_SHA: ${{ needs.metadata.outputs.sha }}
+        run: node scripts/homebrew-pr.mjs open
+
+  homebrew-merge-gate:
+    name: Require merged Homebrew formula and macOS CI
+    needs: [metadata, publish-release, publish-homebrew-tap]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      merged: ${{ steps.gate.outputs.merged }}
+    steps:
+      - name: Require enabled Homebrew publication
+        env:
+          ENABLED: ${{ vars.HOMEBREW_TAP_PUBLISH_ENABLED }}
+        run: |
+          if [[ "$ENABLED" != "true" ]]; then
+            echo "Homebrew publishing is disabled; GHCR must remain blocked." >&2
+            exit 1
+          fi
+      - name: Check out release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: harness-lens/homebrew-tap
-          token: ${{ steps.app-token.outputs.token }}
-          path: tap
-          persist-credentials: true
-      - name: Publish reviewed formula
-        if: vars.HOMEBREW_TAP_PUBLISH_ENABLED == 'true'
-        shell: bash
+          ref: ${{ needs.metadata.outputs.sha }}
+          persist-credentials: false
+      - name: Download original reviewed release
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: harness-lens-${{ needs.metadata.outputs.tag }}-release
+          path: release
+      - name: Mint fresh read-only tap token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.HARNESS_LENS_APP_ID }}
+          private-key: ${{ secrets.HARNESS_LENS_APP_PRIVATE_KEY }}
+          owner: harness-lens
+          repositories: homebrew-tap
+          permission-contents: read
+          permission-pull-requests: read
+      - name: Verify exact merged formula and both macOS checks
+        id: gate
         env:
+          GH_TOKEN: ${{ github.token }}
+          TAP_TOKEN: ${{ steps.app-token.outputs.token }}
+          HOMEBREW_TAP_PUBLISH_ENABLED: ${{ vars.HOMEBREW_TAP_PUBLISH_ENABLED }}
           RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
-        run: |
-          if [[ -f tap/Formula/harness-lens.rb ]] && cmp -s generated/Formula/harness-lens.rb tap/Formula/harness-lens.rb; then
-            echo "Formula is already current."
-            exit 0
-          fi
-          mkdir -p tap/Formula
-          cp generated/Formula/harness-lens.rb tap/Formula/harness-lens.rb
-          cd tap
-          git config user.name "harness-lens-release[bot]"
-          git config user.email "harness-lens-release[bot]@users.noreply.github.com"
-          git add Formula/harness-lens.rb
-          git commit -m "harness-lens ${RELEASE_TAG}"
-          git push origin HEAD:main
+          RELEASE_SHA: ${{ needs.metadata.outputs.sha }}
+        run: node scripts/homebrew-pr.mjs gate
 
   publish-ghcr:
     name: Publish GHCR scanner image
-    needs: [metadata, publish-release, publish-homebrew-tap]
-    if: needs.metadata.outputs.publish == 'true'
+    needs: [metadata, publish-release, homebrew-merge-gate]
+    if: needs.homebrew-merge-gate.outputs.merged == 'true' && needs.metadata.outputs.publish == 'true'
     runs-on: ubuntu-24.04
     environment: release
     permissions:
@@ -403,6 +443,29 @@ jobs:
         with:
           ref: ${{ needs.metadata.outputs.tag }}
           persist-credentials: false
+      - name: Download original reviewed release
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: harness-lens-${{ needs.metadata.outputs.tag }}-release
+          path: release
+      - name: Mint fresh read-only tap token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.HARNESS_LENS_APP_ID }}
+          private-key: ${{ secrets.HARNESS_LENS_APP_PRIVATE_KEY }}
+          owner: harness-lens
+          repositories: homebrew-tap
+          permission-contents: read
+          permission-pull-requests: read
+      - name: Recheck merge gate after environment approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAP_TOKEN: ${{ steps.app-token.outputs.token }}
+          HOMEBREW_TAP_PUBLISH_ENABLED: ${{ vars.HOMEBREW_TAP_PUBLISH_ENABLED }}
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+          RELEASE_SHA: ${{ needs.metadata.outputs.sha }}
+        run: node scripts/homebrew-pr.mjs gate
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
