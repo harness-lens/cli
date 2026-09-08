@@ -3,7 +3,20 @@
 
 name: Publish npm package
 on:
-  release: { types: [published] }
+  workflow_call:
+    inputs:
+      candidate_attempt:
+        description: Run attempt that assembled the reviewed candidate
+        required: true
+        type: string
+      source_sha:
+        description: Exact source commit already bound to the immutable GitHub release
+        required: true
+        type: string
+      tag:
+        description: Canonical immutable GitHub release tag
+        required: true
+        type: string
 permissions:
   contents: read
   id-token: write
@@ -14,22 +27,38 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ inputs.source_sha }}
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - name: Verify release version
-        shell: bash
+          package-manager-cache: false
+      - name: Download original reviewed candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: harness-lens-${{ inputs.tag }}-release
+          path: release
+      - name: Verify candidate identity and package version
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          RELEASE_RUN_ATTEMPT: ${{ inputs.candidate_attempt }}
+          RELEASE_VERSION: ${{ inputs.tag }}
         run: |
+          if [[ ! "$SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]; then
+            echo "Invalid release source SHA: $SOURCE_SHA" >&2
+            exit 1
+          fi
+          export RELEASE_SHA="$SOURCE_SHA"
+          export RELEASE_VERSION="${RELEASE_VERSION#v}"
           package_version="$(node --input-type=module -e 'import packageJson from "./package.json" with { type: "json" }; process.stdout.write(packageJson.version)')"
           if [[ "$RELEASE_TAG" != "v${package_version}" ]]; then
             echo "Release tag $RELEASE_TAG does not match npm version $package_version" >&2
             exit 1
           fi
+          node scripts/release-transaction.mjs verify release
       - run: npm ci
       - run: npm test
-      - run: npm publish --access public --provenance
+      - name: Publish or reconcile exact reviewed npm tarball
+        run: node scripts/publish-npm.mjs release

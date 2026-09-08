@@ -3,9 +3,11 @@
 
 # Native distribution
 
-The native distribution pipeline has one release contract. A `vX.Y.Z` tag must
-match `rust/Cargo.toml`, and the protected workflow builds these assets from that
-exact tag:
+The native distribution pipeline has one release contract. Dispatch the
+protected workflow from `main` with the SemVer already declared by
+`package.json`, `package-lock.json`, and `rust/Cargo.toml`. The workflow captures
+that exact commit, builds these assets once, and creates the matching `vX.Y.Z`
+tag only after protected approval:
 
 | Target | Release archive | Consumer |
 | --- | --- | --- |
@@ -14,11 +16,14 @@ exact tag:
 | Windows x64 | `harness-lens-vX.Y.Z-x86_64-pc-windows-msvc.zip` | WinGet, Scoop, Chocolatey |
 | Linux x64 | `harness-lens-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz` | Direct download |
 
-Each archive has a CycloneDX SBOM. `SHA256SUMS` covers every public release
-asset. GitHub artifact attestations provide cryptographically signed SLSA build
-provenance and bind each archive to its SBOM. These attestations are the current
-cross-platform release signature; they are not Apple Developer ID signatures,
-Apple notarization, or Windows Authenticode signatures.
+Each archive has a CycloneDX SBOM. `SHA256SUMS` covers every generated payload;
+`RELEASE-MANIFEST.json` binds those files and the checksum file to their byte
+sizes, SHA-256 digests, source SHA, workflow SHA, run ID, and attempt. The
+manifest is separately attested. GitHub artifact attestations provide
+cryptographically signed SLSA build provenance and bind each archive to its
+SBOM. These attestations are the current cross-platform release signature; they
+are not Apple Developer ID signatures, Apple notarization, or Windows
+Authenticode signatures.
 
 Verify an archive after downloading it:
 
@@ -30,29 +35,41 @@ gh attestation verify harness-lens-v0.0.2-x86_64-unknown-linux-gnu.tar.gz \
 
 ## Review before publication
 
-Pushing a stable version tag creates a dry-run candidate only. The workflow can
-also be dispatched against that exact tag with `publish` left false. It builds,
-tests, packages, attests, and retains the full candidate as a workflow artifact
-for 30 days without creating a release, updating a package registry, or pushing
-a container. For manual runs, select the same tag as both the workflow ref and
-the `tag` input so the signed provenance identifies the source commit exactly.
+> [!CAUTION]
+> Never create a stable CLI tag or GitHub release manually. Do not dispatch the
+> production workflow until the repository controls and sandbox rehearsal in
+> the [CLI release runbook](release-runbook.md) are complete.
+
+Dispatch `Native release and distribution` once from `main`, supplying only the
+unused version. Its read-only preflight rejects a consumed tag, release, or npm
+version before any build. It builds, tests, packages, attests, and retains one
+complete candidate for 30 days. The `publish-release` job then waits at the
+protected `release` environment. While it waits, download and inspect the
+`harness-lens-vX.Y.Z-release` artifact from that same run. Rejecting approval
+leaves no production tag, release, registry version, formula branch, or
+container tag.
 
 Review at least:
 
 - all four binaries report the expected version;
 - archive contents are limited to the binary, license, copyright, and README;
+- the reviewed npm tarball contains only the intended package files and is the
+  exact tarball later submitted to npm;
 - `SHA256SUMS`, SBOMs, and attestations verify;
 - the generated Homebrew formula selects the correct architecture;
 - WinGet and Scoop manifests parse and reference the reviewed Windows checksum;
 - the Chocolatey package contains only its install scripts and metadata;
 - the container runs as UID/GID 65532 with a read-only workspace and no network.
 
-Enable release immutability in the CLI repository, and require an approver for
-the `release` GitHub environment. Set `publish: true` only after review. The
-workflow creates a draft, attaches every asset, and publishes it only when the
-complete set is present; GitHub then locks the tag and assets. The remaining
-jobs propose a Homebrew PR when enabled. GHCR stays blocked until that exact
-formula merges and its macOS CI passes. See the continuation procedure below.
+After approval, the same run downloads the retained candidate without
+rebuilding. It rechecks npm and GitHub state, creates or reconciles a
+provenance-bound draft, uploads only missing assets, and compares the complete
+remote name/size/digest inventory with the manifest. Only an exact draft is
+published. It then requires `immutable=true`, the unchanged inventory, and the
+tag at the original source SHA. Conflicting or already-published state stops;
+assets are never clobbered. npm publication is explicitly ordered after this
+postcondition. The remaining jobs propose a Homebrew PR when enabled. GHCR stays
+blocked until that exact formula merges and its macOS CI passes.
 
 ## Homebrew
 
@@ -71,7 +88,7 @@ Metadata read. Configure the CLI repository:
 - repository secret `HARNESS_LENS_APP_PRIVATE_KEY`.
 
 The switch is a variable, not a secret. Enable it only after the workflow is
-merged, the new tag's dry run is reviewed, and publication is approved.
+merged and the repository controls and sandbox rehearsal are complete.
 Disabling Homebrew also blocks GHCR; it does not disable the separately approved
 GitHub release job or change npm publication behavior.
 
@@ -104,9 +121,10 @@ manual investigation.
 
 ### Resume GHCR after formula review
 
-1. Approve and dispatch the reviewed new tag with `publish=true`. GitHub assets
+1. Dispatch the unused version once from `main`. Review the retained candidate
+   while the publisher waits, then approve that same run. GitHub assets and npm
    publish first; the App then creates the formula PR. Record this **publication
-   run ID**, which differs from the earlier dry-run ID.
+   run ID**; it is also the candidate build and manifest run ID.
 2. Expect `Require merged Homebrew formula and macOS CI` to fail promptly while
    the PR is open. This is an intentional, observable pause; no polling job or
    token waits for a maintainer. GHCR is skipped.
@@ -123,8 +141,9 @@ manual investigation.
 
    If PR creation failed earlier, this retries that job too. To retry only that
    job and its dependents, use `gh run rerun --job JOB_ID --repo harness-lens/cli`.
-   Do not select Re-run all jobs or start a new publication dispatch: those
-   rebuild assets and attempt to create the existing immutable release.
+   Do not select Re-run all jobs or start a new publication dispatch. The
+   preflight rejects the consumed version, and continuation must remain bound to
+   the original retained candidate.
 5. The gate mints a fresh read-only tap token, downloads the same run's artifact,
    verifies the release again, and requires the matching PR to be merged. Both
    the merge commit and current main must contain exactly the reviewed formula,
