@@ -7,13 +7,14 @@ Updated: 2026-09-09. Owner: `harness-lens/cli`.
 
 ## Current phase
 
-Phase 2: require the complete asset inventory and qualify installed native,
-npm, and Homebrew candidates through ordinary PR CI. Phase 1 is merged in
-[PR 39](https://github.com/harness-lens/cli/pull/39). No production release is authorized by
+Phase 3: build and qualify both container architectures before publication,
+then reconcile destinations using retained candidate bytes. Phase 1 is merged
+in [PR 39](https://github.com/harness-lens/cli/pull/39); Phase 2 is merged in
+[PR 40](https://github.com/harness-lens/cli/pull/40). No production release is authorized by
 this implementation checkpoint. Existing immutable versions remain unchanged.
 
-Base: `55d1689504be4d630be1fe6b1da5c3a75fa0e49a`.
-Branch: `fix/release-candidate-qualification`.
+Base: `c987627a9f10d0f06fab39d263cd29f5a0b2aa75`.
+Branch: `fix/release-container-qualification`.
 Working checkout: `/tmp/harness-lens-cli-recovery.yanc9H`.
 The hub checkout and all pre-existing dirty work remain untouched.
 
@@ -35,9 +36,10 @@ Do not infer deployment from a passing unit test or PR.
 - [ ] 5. Enforce required asset inventory, digests, source identity, and provenance.
   Independent inventory and CLI rejection coverage implemented in Phase 2;
   cryptographic attestation verification remains separate work.
-- [ ] 6. Test installation and functionality of native, npm, and Homebrew packages.
-  Linux native and npm checks pass locally; four native CI targets and both
-  Homebrew architectures are wired into PR checks and release preparation.
+- [x] 6. Test installation and functionality of native, npm, and Homebrew packages.
+  All four native CI targets, npm consumers on Node 20/22/24, and Homebrew
+  installation/test/functional scans on both macOS architectures pass on the
+  reviewed PR 40 head. This is candidate qualification, not production acceptance.
 - [ ] 7. Build and smoke-test both container architectures before publication.
 - [ ] 8. Unify pinned tools across CI and release qualification.
   Rust checks/builds now share 1.85.1; native qualification and release npm
@@ -86,10 +88,17 @@ prepare, which must not prevent read-only reconciliation of a completed release.
 
 ## Next action
 
-Prepare the Phase 2 PR, monitor exact-head native and Homebrew CI, and repair
-any failures. Record its final source SHA and check URLs. Then continue with
-container qualification, reproducibility, provenance verification, destination
-reconciliation, protected recovery, and the sandbox prerequisites in the ledger.
+Implement Phase 3 in this branch: build/smoke both container architectures before
+GitHub publication, retain the tested image bytes with reviewed evidence, and
+publish those bytes without rebuilding. Reconcile existing destination digests
+before writes while preserving the Homebrew merge gate. The local WSL checkout
+has no working Docker daemon; ordinary PR CI can provide container execution.
+Do not dispatch a production release as a test.
+
+Then finish reproducibility, cryptographic provenance verification, remaining tool
+pins and shared assembly, protected recovery, pending Homebrew state, and sandbox
+configuration/rehearsal cases. Hub pins remain unchanged until the owning changes
+and required downstream verification are complete.
 Update this checkpoint before any handoff or context exhaustion.
 
 ## Phase 1 measurements
@@ -126,7 +135,7 @@ Update this checkpoint before any handoff or context exhaustion.
 ## Phase 2 local measurements
 
 Measured on the worktree based on `55d1689504be4d630be1fe6b1da5c3a75fa0e49a`;
-final PR-head CI evidence remains pending.
+PR-head CI evidence is recorded below.
 
 - Node `v24.18.0`, npm `11.16.0`, Rust/Cargo `1.85.1`.
 - `npm ci --cache /tmp/harness-lens-npm-cache`: passed.
@@ -153,6 +162,37 @@ final PR-head CI evidence remains pending.
   `2e3f17a0bb3271e369184fb277414e369a46716c011ee2827b2ae05f3d2cecef`.
 - No macOS, Windows, Homebrew installation, or live sandbox result is inferred
   from the Linux checks. Archive timestamps are not yet normalized.
+
+## Phase 2 deployment evidence
+
+- Reviewed head: `e7f693f66ed532bbe50c3cfce680232b809cd3eb`.
+- PR: https://github.com/harness-lens/cli/pull/40 (merged).
+- Merge: `c987627a9f10d0f06fab39d263cd29f5a0b2aa75`.
+- `git diff --exit-code e7f693f66ed532bbe50c3cfce680232b809cd3eb origin/main`
+  passed immediately after fetching the merge. The complete trees match.
+- CI: https://github.com/harness-lens/cli/actions/runs/34409222611 (success).
+- CodeQL: https://github.com/harness-lens/cli/actions/runs/34409222575 (success).
+- Apple silicon native archive:
+  https://github.com/harness-lens/cli/actions/runs/34409222611/job/102659464519.
+- Intel macOS native archive:
+  https://github.com/harness-lens/cli/actions/runs/34409222611/job/102659464546.
+- Windows x64 native archive:
+  https://github.com/harness-lens/cli/actions/runs/34409222611/job/102659464524.
+- Linux x64 native archive:
+  https://github.com/harness-lens/cli/actions/runs/34409222611/job/102659464588.
+- Apple silicon Homebrew installation, formula test, and functional scan:
+  https://github.com/harness-lens/cli/actions/runs/34409222611/job/102660071765.
+- Intel Homebrew installation, formula test, and functional scan:
+  https://github.com/harness-lens/cli/actions/runs/34409222611/job/102660071893.
+- Node 20/22/24, Rust, workflow lint, the existing single-architecture container
+  smoke, and language placeholder checks also passed in that CI run.
+- The existing container smoke does not satisfy ledger item 7. No cross-build
+  reproducibility, cryptographic provenance verification, sandbox permission,
+  protected recovery, or production acceptance claim follows from these checks.
+- Hub status still matches its initial dirty state. Composition diff is nonempty
+  because pre-existing work was preserved; no hub file or module pin was changed.
+- No sandbox or production release was dispatched. The implementation checkpoint
+  is stored on the new Phase 3 branch; Phase 3 code has not yet been implemented.
 
 ## External prerequisites
 
