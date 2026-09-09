@@ -1,0 +1,92 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright © 2026 Cristian Camargo Filho
+name: Native candidate
+description: Build and exercise the native archive used by PR and release workflows
+inputs:
+  version:
+    description: Expected package version
+    required: true
+  target:
+    description: Rust target triple
+    required: true
+  executable:
+    description: Native executable filename
+    required: true
+  archive:
+    description: Archive extension
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      with:
+        node-version-file: .node-version
+        package-manager-cache: false
+    - name: Select the repository Rust toolchain
+      shell: bash
+      run: |
+        rustup show
+        rustup target add "$TARGET"
+        rustc --version
+        cargo --version
+        node --version
+        git log -1 --format=%H
+      env:
+        TARGET: ${{ inputs.target }}
+    - name: Build and smoke-test native CLI
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        TARGET: ${{ inputs.target }}
+        EXECUTABLE: ${{ inputs.executable }}
+      run: |
+        cargo build --locked --release --manifest-path rust/Cargo.toml --target "$TARGET"
+        actual_version="$("rust/target/${TARGET}/release/${EXECUTABLE}" --version)"
+        if [[ "$actual_version" != "harness-lens ${VERSION}" ]]; then
+          echo "Binary reported unexpected version: $actual_version" >&2
+          exit 1
+        fi
+    - name: Package native CLI
+      shell: bash
+      env:
+        ARCHIVE_FORMAT: ${{ inputs.archive }}
+        EXECUTABLE: ${{ inputs.executable }}
+        TARGET: ${{ inputs.target }}
+        VERSION: ${{ inputs.version }}
+      run: |
+        archive="harness-lens-v${VERSION}-${TARGET}.${ARCHIVE_FORMAT}"
+        mkdir -p dist/stage
+        cp "rust/target/${TARGET}/release/${EXECUTABLE}" dist/stage/
+        cp README.md LICENSE COPYRIGHT dist/stage/
+        node --input-type=module -e '
+          import { readdir } from "node:fs/promises";
+          const expected = ["COPYRIGHT", "LICENSE", "README.md", process.env.EXECUTABLE].sort();
+          const entries = await readdir("dist/stage", { withFileTypes: true });
+          const actual = entries.map((entry) => entry.name).sort();
+          if (entries.some((entry) => !entry.isFile()) || JSON.stringify(actual) !== JSON.stringify(expected)) {
+            throw new Error("unsafe or unexpected archive content: " + actual.join(", "));
+          }
+        '
+        if [[ "$ARCHIVE_FORMAT" == "zip" ]]; then
+          (cd dist/stage && 7z a -tzip "../${archive}" ./*)
+        else
+          tar -C dist/stage -czf "dist/${archive}" .
+        fi
+        node scripts/generate-cyclonedx.mjs "$TARGET" "dist/${archive}.cdx.json"
+    - name: Exercise the binary extracted from its candidate archive
+      shell: bash
+      env:
+        ARCHIVE_FORMAT: ${{ inputs.archive }}
+        EXECUTABLE: ${{ inputs.executable }}
+        TARGET: ${{ inputs.target }}
+        VERSION: ${{ inputs.version }}
+      run: |
+        mkdir dist/installed
+        archive="dist/harness-lens-v${VERSION}-${TARGET}.${ARCHIVE_FORMAT}"
+        if [[ "$ARCHIVE_FORMAT" == "zip" ]]; then
+          7z x "$archive" -odist/installed
+        else
+          tar -xf "$archive" -C dist/installed
+        fi
+        cmp "dist/stage/${EXECUTABLE}" "dist/installed/${EXECUTABLE}"
+        node scripts/smoke-native-package.mjs "dist/installed/${EXECUTABLE}" "$VERSION" "$archive"

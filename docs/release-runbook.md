@@ -125,7 +125,8 @@ gh pr checks PR_NUMBER --repo harness-lens/cli --watch
 
 The recorded `headRefOid` must equal the reviewed branch SHA. Require successful
 results for pinned workflow lint, all TypeScript matrix jobs (Node 20, 22, and
-24), Rust, the scanner container, the language placeholders, and CodeQL. Inspect
+24), Rust, all four native candidate jobs, both Homebrew installation jobs, the
+scanner container, the language placeholders, and CodeQL. Inspect
 any failure before rerunning it; do not merge based on a stale successful run
 from an older SHA. The Actions page must not show a release workflow run caused
 by the pull request.
@@ -188,6 +189,14 @@ preflight is not permission to skip the recorded operator audit. See GitHub's
 
 ### 3. Build and verify before mutation
 
+Native archives and npm tarballs use the same composite actions as PR CI.
+`rust-toolchain.toml` selects Rust 1.85.1 for native builds and Rust checks;
+`.node-version` selects Node for native qualification and release npm builds.
+The Node 20/22/24 CI matrix additionally tests supported consumer runtimes.
+Homebrew checks install the unchanged generated formula from a cache populated
+with candidate bytes, then run `brew test` and the native functional fixtures.
+The public release URL is not used as a fallback during that installation.
+
 The same workflow run must:
 
 1. Build and smoke-test Apple silicon macOS, Intel macOS, Windows x64, and Linux
@@ -202,6 +211,12 @@ The same workflow run must:
 7. Generate `RELEASE-MANIFEST.json` with version, tag, source SHA, workflow SHA,
    run ID and attempt, plus every asset's name, byte size, and SHA-256.
 8. Attest and upload the complete candidate as one retained workflow artifact.
+
+Manifest creation, local verification, preparation, and publication independently
+require the complete 15-file asset inventory: four native archives, their four
+SBOMs, npm, Homebrew, WinGet, Scoop, Chocolatey, checksums, and the manifest.
+Self-consistent checksums cannot excuse a missing required asset. Required files
+must be nonempty; existing byte-digest and workflow identity checks still apply.
 
 No tag, draft, registry version, formula branch, or container tag may exist at
 this point.

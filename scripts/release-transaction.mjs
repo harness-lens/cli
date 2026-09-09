@@ -27,6 +27,36 @@ const positiveIntegerPattern = /^[1-9]\d*$/;
 const assetNamePattern = /^[A-Za-z0-9][A-Za-z0-9._+-]*$/;
 const compareNames = (left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0;
 
+export function requiredReleaseAssetNames(version) {
+  requireThat(semverPattern.test(version), "Invalid release version");
+  const archives = [
+    `harness-lens-v${version}-aarch64-apple-darwin.tar.gz`,
+    `harness-lens-v${version}-x86_64-apple-darwin.tar.gz`,
+    `harness-lens-v${version}-x86_64-pc-windows-msvc.zip`,
+    `harness-lens-v${version}-x86_64-unknown-linux-gnu.tar.gz`,
+  ];
+  return [
+    ...archives,
+    ...archives.map((archive) => `${archive}.cdx.json`),
+    `harness-lens-cli-${version}.tgz`,
+    `harness-lens-homebrew-tap-v${version}.tar.gz`,
+    `harness-lens-winget-v${version}.zip`,
+    `harness-lens-scoop-v${version}.json`,
+    `harness-lens.${version}.nupkg`,
+    "SHA256SUMS",
+    MANIFEST_NAME,
+  ].sort();
+}
+
+export function verifyRequiredReleaseAssets(candidate) {
+  const expected = requiredReleaseAssetNames(candidate.manifest.version);
+  const actual = candidate.assets.map((asset) => asset.name).sort();
+  requireThat(JSON.stringify(actual) === JSON.stringify(expected),
+    "Release candidate does not contain the required asset inventory");
+  requireThat(candidate.assets.every((asset) => Number.isSafeInteger(asset.size) && asset.size > 0),
+    "Required release assets must not be empty");
+}
+
 export function releaseIdentity(values) {
   const identity = {
     repository: values.repository,
@@ -346,10 +376,12 @@ async function main() {
   const identity = identityFromEnvironment();
   if (command === "manifest") {
     await generateManifest(directory, identity);
+    verifyRequiredReleaseAssets(await loadCandidate(directory));
     return;
   }
   if (command === "verify") {
     const candidate = await loadCandidate(directory);
+    verifyRequiredReleaseAssets(candidate);
     requireThat(JSON.stringify(releaseIdentity(candidate.manifest)) === JSON.stringify(identity),
       "Candidate identity differs from this workflow run");
     return;
@@ -361,6 +393,7 @@ async function main() {
     return;
   }
   const candidate = await loadCandidate(directory);
+  verifyRequiredReleaseAssets(candidate);
   requireThat(JSON.stringify(releaseIdentity(candidate.manifest)) === JSON.stringify(identity),
     "Candidate identity differs from this workflow run");
   if (command === "prepare") {
