@@ -142,6 +142,7 @@ for (const [name, modify, expected] of [
   ["mismatched tag/archive version", (s) => s.formulas.set(s.main, formula.replace("download/v0.0.3/", "download/v0.0.2/")), /determine current formula version/],
   ["mixed architecture versions", (s) => s.formulas.set(s.main, formula.replace("download/v0.0.3/harness-lens-v0.0.3-aarch64", "download/v0.0.2/harness-lens-v0.0.2-aarch64")), /determine current formula version/],
   ["duplicate architecture", (s) => s.formulas.set(s.main, formula.replace("x86_64-apple", "aarch64-apple")), /determine current formula version/],
+  ["unrecognized version declaration", (s) => s.formulas.set(s.main, formula.replace('  license', "  version '0.0.4'\n  license")), /determine current formula version/],
   ["conflicting legacy version", (s) => s.formulas.set(s.main, formula.replace('  license', '  version "0.0.1"\n  license')), /determine current formula version/],
   ["same version with different checksum", (s) => s.formulas.set(s.main, formula.replace("a".repeat(64), "e".repeat(64))), /replacement/],
   ["unknown formula syntax", (s) => s.formulas.set(s.main, "arbitrary formula"), /determine current formula version/],

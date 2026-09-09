@@ -82,7 +82,8 @@ function rejectDowngrade(current, release) {
   const explicit = [...current.matchAll(/^  version "([^"]+)"$/gm)];
   requireThat(sources.length === 2 && [...current.matchAll(/^\s+url /gm)].length === 2 &&
     new Set(sources.map((source) => source[2])).size === 2 && sources[0][1] === sources[1][1] &&
-    explicit.length <= 1 && explicit.every((match) => match[1] === sources[0][1]),
+    explicit.length <= 1 && [...current.matchAll(/^\s+version\b/gm)].length === explicit.length &&
+    explicit.every((match) => match[1] === sources[0][1]),
   "Cannot determine current formula version; manual review required");
   const old = sources[0][1].split(".").map(BigInt);
   const next = release.tag.slice(1).split(".").map(BigInt);
