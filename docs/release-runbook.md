@@ -49,8 +49,9 @@ Before a production run, verify and record:
   only the intended branch;
 - a tag ruleset protects stable `v*` tags from human creation, update, and
   deletion, with only the release automation identity allowed to bypass it;
-- every workflow defaults to `contents: read`, and only the protected publisher
-  job receives `contents: write`;
+- every workflow defaults to `contents: read`; the protected publisher keeps its
+  `GITHUB_TOKEN` read-only and mints a repository-scoped release App token with
+  `contents: write` only after environment approval;
 - registry and GitHub App credentials exist only in their protected
   environments and have the minimum permissions required;
 - release workflow and verification-script changes require review and passing
