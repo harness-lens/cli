@@ -27,6 +27,7 @@ unknown.
 - `release` environment protection: `REQUIRED`
 - npm trusted publisher (`native-release.yml`, `npm`, direct publish allowed,
   bypass-2FA tokens disallowed): `REQUIRED`
+- Sandbox rehearsal (`v0.0.5` only: bounded acceptance exception): `REQUIRED`
 - Version absence checks: `REQUIRED`
 
 ## Verification results

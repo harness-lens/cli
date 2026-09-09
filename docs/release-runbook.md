@@ -13,7 +13,9 @@ The corrective workflow and tests implementing the repository-side one-run
 transaction are merged. The tag rules, protected environments, npm trusted
 publisher, and other repository controls must still be verified and recorded
 before each production run. Do not create another stable tag or GitHub release
-until an immutable release-sandbox rehearsal has also passed.
+until an immutable release-sandbox rehearsal has also passed. The sole exception
+is the supervised `v0.0.5` production acceptance authorized and bounded by the
+[`v0.0.5` preflight record](releases/v0.0.5-preflight.md).
 
 Tags `v0.0.3` and `v0.0.4` are consumed and must never be recreated or reused.
 Release `v0.0.4` is immutable and contains no assets. See the
@@ -147,7 +149,7 @@ The diff must be empty. This verifies the repository content only; it does not
 verify environment reviewers, tag rules, release immutability, registry
 configuration, or the behavior of the irreversible publication boundary. Audit
 those settings separately and complete the sandbox rehearsal below before any
-production dispatch.
+production dispatch other than the bounded `v0.0.5` acceptance.
 
 ## One-run release sequence
 
@@ -291,6 +293,10 @@ The sandbox rehearsal must prove that draft recovery works, exact assets are
 accepted, publication makes the release immutable, subsequent asset mutation is
 rejected, and an unauthorized stable-tag creation is rejected. A production
 version is not a workflow test fixture.
+
+The `v0.0.5` exception does not satisfy this rehearsal requirement. It expires
+when `v0.0.5` is consumed and cannot be cited for any later version. Complete the
+dedicated sandbox rehearsal before preparing the next production version.
 
 ## Evidence retained for every release
 
