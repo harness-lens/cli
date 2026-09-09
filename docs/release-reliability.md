@@ -7,12 +7,13 @@ Updated: 2026-09-09. Owner: `harness-lens/cli`.
 
 ## Current phase
 
-Phase 1: reproduce and repair whole-publisher retry after GitHub accepts
-publication but its response is lost. No production release is authorized by
+Phase 2: require the complete asset inventory and qualify installed native,
+npm, and Homebrew candidates through ordinary PR CI. Phase 1 is merged in
+[PR 39](https://github.com/harness-lens/cli/pull/39). No production release is authorized by
 this implementation checkpoint. Existing immutable versions remain unchanged.
 
-Base: `d5bfffbaa1d412e6ba21639c3593e50f87a7d0f2`.
-Branch: `fix/release-recovery-evidence`.
+Base: `55d1689504be4d630be1fe6b1da5c3a75fa0e49a`.
+Branch: `fix/release-candidate-qualification`.
 Working checkout: `/tmp/harness-lens-cli-recovery.yanc9H`.
 The hub checkout and all pre-existing dirty work remain untouched.
 
@@ -27,16 +28,24 @@ Do not infer deployment from a passing unit test or PR.
   Sandbox secrets count and tag bypass actors are both zero. Production
   `v0.0.5` is immutable; tap PR 3 is open with both architecture checks failing.
 - [x] 2. Create an isolated CLI branch and preserve existing dirty work.
-- [x] 3. Repair whole-job retry after successful publication (local verification;
-  PR, merge, and live sandbox acceptance remain pending).
+- [x] 3. Repair whole-job retry after successful publication (PR 39 merged;
+  live sandbox acceptance remains pending).
 - [x] 4. Add interruption tests for creation, each upload, publication, and verification
   (12 simulated interruption cases and nine conflicting-state cases pass).
 - [ ] 5. Enforce required asset inventory, digests, source identity, and provenance.
+  Independent inventory and CLI rejection coverage implemented in Phase 2;
+  cryptographic attestation verification remains separate work.
 - [ ] 6. Test installation and functionality of native, npm, and Homebrew packages.
+  Linux native and npm checks pass locally; four native CI targets and both
+  Homebrew architectures are wired into PR checks and release preparation.
 - [ ] 7. Build and smoke-test both container architectures before publication.
 - [ ] 8. Unify pinned tools across CI and release qualification.
+  Rust checks/builds now share 1.85.1; native qualification and release npm
+  construction share Node 24.18.0. Remaining tool pins are not yet unified.
 - [ ] 9. Normalize archives and compare independent clean-build payload digests.
 - [ ] 10. Share candidate construction between PR checks and release preparation.
+  Native and npm construction use shared composite actions. Complete assembly
+  and containers remain separate work.
 - [ ] 11. Reconcile existing destination artifacts before writing.
 - [ ] 12. Represent Homebrew review as pending while preserving the merge gate.
 - [ ] 13. Implement protected recovery from verified immutable assets.
@@ -77,8 +86,10 @@ prepare, which must not prevent read-only reconciliation of a completed release.
 
 ## Next action
 
-Complete release-pinned Rust checks and prepare the focused retry-repair PR.
-Then implement independent asset inventory and package qualification work.
+Prepare the Phase 2 PR, monitor exact-head native and Homebrew CI, and repair
+any failures. Record its final source SHA and check URLs. Then continue with
+container qualification, reproducibility, provenance verification, destination
+reconciliation, protected recovery, and the sandbox prerequisites in the ledger.
 Update this checkpoint before any handoff or context exhaustion.
 
 ## Phase 1 measurements
@@ -103,6 +114,45 @@ Update this checkpoint before any handoff or context exhaustion.
   check after successfully installing the toolchain; subsequent checks used
   that installation with isolated `RUSTUP_HOME`/`CARGO_HOME` and
   `RUSTUP_TOOLCHAIN=1.85.1`.
+
+## Phase 1 deployment evidence
+
+- Reviewed head: `d8ee9aa509fbda4aab3e389a5b26fd2fb0829009`.
+- CI: https://github.com/harness-lens/cli/actions/runs/34404203145.
+- CodeQL: https://github.com/harness-lens/cli/actions/runs/34404203154.
+- Merge: `55d1689504be4d630be1fe6b1da5c3a75fa0e49a` (PR 39).
+- The merged tree matches the reviewed tree. No release was dispatched.
+
+## Phase 2 local measurements
+
+Measured on the worktree based on `55d1689504be4d630be1fe6b1da5c3a75fa0e49a`;
+final PR-head CI evidence remains pending.
+
+- Node `v24.18.0`, npm `11.16.0`, Rust/Cargo `1.85.1`.
+- `npm ci --cache /tmp/harness-lens-npm-cache`: passed.
+- `npm test`: 139 tests passed, zero failed/skipped.
+- The inventory suite includes all 15 missing-file and 15 empty-file cases;
+  eight CLI fixture scenarios exercise 24 command invocations, including source,
+  workflow, run, and attempt mismatches, with unexpected network access trapped.
+- `npm run check`, actionlint `1.7.12`, and `git diff --check`: passed.
+- `npm pack --pack-destination /tmp` followed by
+  `npm run package:smoke -- /tmp/harness-lens-cli-0.0.5.tgz 0.0.5`: passed;
+  installed into an empty temporary consumer, checked help/invalid command, and
+  compared two functional scans excluding only `generatedAt`.
+- Rust `cargo fmt --check`, `cargo clippy --all-targets --locked --offline --
+  -D warnings`, `cargo test --locked --offline`, `cargo run --locked --offline
+  -- --version`, and the release build for `x86_64-unknown-linux-gnu`: passed.
+  The Rust unit-test target still contains zero tests.
+- Executed the shared native action's build, archive, and extraction shell steps
+  locally. `cmp` confirms the extracted executable equals the build output.
+  `smoke-native-package.mjs` passes help, invalid option, missing config argument,
+  and two functional scans excluding only `plugin_executions[].duration_micros`.
+  Native binary SHA-256:
+  `504712d668706df155c528396e5034905045d970f6007a66e92058e676bff1f1`.
+  Archive SHA-256:
+  `2e3f17a0bb3271e369184fb277414e369a46716c011ee2827b2ae05f3d2cecef`.
+- No macOS, Windows, Homebrew installation, or live sandbox result is inferred
+  from the Linux checks. Archive timestamps are not yet normalized.
 
 ## External prerequisites
 

@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright © 2026 Cristian Camargo Filho
+name: npm candidate
+description: Pack and install the candidate in an empty consumer directory
+runs:
+  using: composite
+  steps:
+    - run: npm ci
+      shell: bash
+    - run: npm test
+      shell: bash
+    - run: npm run check
+      shell: bash
+    - name: Pack and exercise the exact candidate
+      shell: bash
+      run: |
+        mkdir npm-package
+        npm pack --pack-destination npm-package
+        version="$(node -p 'JSON.parse(require("fs").readFileSync("package.json", "utf8")).version')"
+        test "$(find npm-package -maxdepth 1 -type f | wc -l)" = "1"
+        npm run package:smoke -- "npm-package/harness-lens-cli-${version}.tgz" "$version"
