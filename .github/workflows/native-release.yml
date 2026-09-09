@@ -39,7 +39,7 @@ jobs:
           WORKFLOW_REF: ${{ github.ref }}
         run: |
           semver_pattern='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
-          if [[ ! "$RELEASE_VERSION" =~ $semver_pattern ]]; then
+          if ! [[ "$RELEASE_VERSION" =~ $semver_pattern ]]; then
             echo "Invalid release version: $RELEASE_VERSION" >&2
             exit 1
           fi
@@ -54,7 +54,9 @@ jobs:
           lock_version="$(node --input-type=module -e 'import lock from "./package-lock.json" with { type: "json" }; process.stdout.write(lock.version)')"
           lock_root_version="$(node --input-type=module -e 'import lock from "./package-lock.json" with { type: "json" }; process.stdout.write(lock.packages[""].version)')"
           cargo_lock_version="$(awk '$0 == "name = \"harness-lens-cli\"" { found=1; next } found && /^version = / { sub(/^version = "/, ""); sub(/"$/, ""); print; exit }' rust/Cargo.lock)"
-          if [[ "$version" != "$crate_version" || "$version" != "$npm_version" || "$version" != "$lock_version" || "$version" != "$lock_root_version" || "$version" != "$cargo_lock_version" ]]; then
+          if [[ "$version" == "$crate_version" && "$version" == "$npm_version" && "$version" == "$lock_version" && "$version" == "$lock_root_version" && "$version" == "$cargo_lock_version" ]]; then
+            :
+          else
             echo "Requested version $version differs from crate=$crate_version cargo-lock=$cargo_lock_version npm=$npm_version lock=$lock_version lock-root=$lock_root_version" >&2
             exit 1
           fi
