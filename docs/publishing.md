@@ -7,7 +7,8 @@
 > Do not create or publish a CLI release from the GitHub Releases UI. Follow the
 > [CLI release runbook](release-runbook.md). Merge the workflow controls and
 > complete the repository configuration and sandbox rehearsal before another
-> stable version is attempted.
+> stable version is attempted. The sole exception is the bounded
+> [`v0.0.5` supervised production acceptance](releases/v0.0.5-preflight.md).
 
 `@harness-lens/core@0.0.1` must remain available from npm. Configure npm trusted
 publishing for organization `harness-lens`, repository `cli`, workflow filename
@@ -48,6 +49,7 @@ from a standalone checkout. See the
 
 Do not prepare or publish another stable version until the workflow change is
 merged and every external prerequisite in the runbook is recorded and exercised
-in an immutable release sandbox. Recheck remote tags, releases, drafts, package
+in an immutable release sandbox, except for the explicitly authorized `v0.0.5`
+acceptance. Recheck remote tags, releases, drafts, package
 registries, and container tags before reserving the next version. Never rewrite
 an existing tag or use a production version as a workflow test fixture.
