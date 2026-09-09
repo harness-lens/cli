@@ -85,15 +85,17 @@ jobs:
           - arch: x86_64
             runner: macos-15-intel
     steps:
-      - name: Set up Homebrew and source tap
-        id: homebrew
+      - name: Check out the PR source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up stable Homebrew
         uses: Homebrew/actions/setup-homebrew@a657b8b0cd35d0f65cce41fce9b24cf054b49869 # 2026.08.24.1
         with:
           core: true
           cask: false
           stable: true
       - name: Generate formula regression fixture
-        working-directory: ${{ steps.homebrew.outputs.repository-path }}
         run: |
           node --input-type=module <<'JS'
           import { mkdir, writeFile } from 'node:fs/promises';
@@ -109,15 +111,17 @@ jobs:
           JS
       - name: Parse, style, and strictly audit the generated formula
         env:
-          TAP: ${{ steps.homebrew.outputs.tap-name }}
+          TAP: harness-lens/validation
         run: |
+          brew tap-new --no-git "$TAP"
+          cp Formula/harness-lens.rb "$(brew --repository "$TAP")/Formula/harness-lens.rb"
           brew trust --formula "$TAP/harness-lens"
           brew readall --os=all --arch=all "$TAP"
           brew style "$TAP/harness-lens"
           brew audit --strict "$TAP/harness-lens"
       - name: Verify native architecture URL and checksum selection
         env:
-          TAP: ${{ steps.homebrew.outputs.tap-name }}
+          TAP: harness-lens/validation
           EXPECTED_ARCH: ${{ matrix.arch }}
         run: |
           brew info --json=v2 "$TAP/harness-lens" > "$RUNNER_TEMP/formula.json"

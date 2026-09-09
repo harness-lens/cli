@@ -257,8 +257,7 @@ jobs:
           - arch: x86_64
             runner: macos-15-intel
     steps:
-      - name: Set up Homebrew and source tap
-        id: homebrew
+      - name: Set up stable Homebrew
         uses: Homebrew/actions/setup-homebrew@a657b8b0cd35d0f65cce41fce9b24cf054b49869 # 2026.08.24.1
         with:
           core: true
@@ -268,11 +267,13 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: homebrew-tap
-          path: ${{ steps.homebrew.outputs.repository-path }}
+          path: candidate-homebrew
       - name: Parse, style, and strictly audit before publication
         env:
-          TAP: ${{ steps.homebrew.outputs.tap-name }}
+          TAP: harness-lens/validation
         run: |
+          brew tap-new --no-git "$TAP"
+          cp candidate-homebrew/Formula/harness-lens.rb "$(brew --repository "$TAP")/Formula/harness-lens.rb"
           brew trust --formula "$TAP/harness-lens"
           brew readall --os=all --arch=all "$TAP"
           brew style "$TAP/harness-lens"
