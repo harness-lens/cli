@@ -267,11 +267,23 @@ continuation constraints.
 | Matching complete draft | Reverify the full manifest, then publish. |
 | Conflicting tag SHA or draft metadata | Stop for maintainer investigation. |
 | Existing asset with a different digest | Stop; never use `--clobber`. |
-| Existing published release | Stop; never rebuild or try to modify it. |
+| Matching immutable release from this run | Reverify source, tag, provenance, and every asset; finish the publisher without writes. |
+| Published release with conflicting identity or assets | Stop; never rebuild or try to modify it. |
 | Published release reports `immutable=false` | Stop all downstream publication and begin incident review; never replace its assets or tag. |
 | Existing registry version | Stop; registries and stable versions are immutable. |
 | Expired or missing workflow artifact | Stop; prepare a reviewed new version. |
 | Ambiguous API response | Read current state and reconcile; do not repeat a mutation blindly. |
+
+The GitHub publisher job restarts with `prepare` before `publish`. Both steps
+recognize a matching immutable release, so a lost publication response or final
+verification failure can recover by rerunning failed jobs in the same original
+run. The npm unused-version check still protects mutable draft operations; it
+does not block read-only verification of a completed immutable GitHub release.
+This does not authorize rebuilding assets, switching source/run identity,
+reusing a consumed version, or changing the Homebrew/GHCR gates.
+
+See [release reliability evidence](release-reliability.md) for implementation
+status and the remaining cross-platform and sandbox acceptance work.
 
 ## Tests required before the next release
 

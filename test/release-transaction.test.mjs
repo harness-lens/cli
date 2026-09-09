@@ -218,6 +218,124 @@ test("ambiguous create, upload, and publish responses reconcile without duplicat
   assert.deepEqual(published.state.writes, []);
 });
 
+test("whole publisher job reconciles a lost publication response without another write", async () => {
+  const candidate = await candidateFixture();
+  const { state, api, upload } = remoteFixture(candidate);
+  await prepareDraft(api, upload, candidate);
+  await assert.rejects(publishDraft(async (...args) => {
+    const result = await api(...args);
+    if (args[1]?.method === "PATCH") throw new Error("connection lost after publication");
+    return result;
+  }, candidate), /connection lost/u);
+  const writes = structuredClone(state.writes);
+  const uploads = [...state.uploads];
+  // GitHub retries the entire job, including its preceding prepare step.
+  await prepareDraft(api, upload, candidate);
+  assert.equal((await publishDraft(api, candidate)).immutable, true);
+  assert.deepEqual(state.writes, writes);
+  assert.deepEqual(state.uploads, uploads);
+});
+
+test("whole-job retries recover every mutation boundary and final verification", async (t) => {
+  const candidate = await candidateFixture();
+  const boundaries = ["create", ...candidate.assets.map((asset) => `upload:${asset.name}`), "publish", "verify"];
+  for (const boundary of boundaries) {
+    for (const timing of ["before", "after"]) {
+      await t.test(`${timing} ${boundary}`, async () => {
+        const fixture = remoteFixture(candidate);
+        let interrupted = false;
+        const intercept = async (operation, callback) => {
+          if (operation === boundary && !interrupted && timing === "before") {
+            interrupted = true;
+            throw new Error(`interrupted ${timing} ${boundary}`);
+          }
+          const result = await callback();
+          if (operation === boundary && !interrupted && timing === "after") {
+            interrupted = true;
+            throw new Error(`interrupted ${timing} ${boundary}`);
+          }
+          return result;
+        };
+        const api = (path, options = {}) => {
+          const operation = options.method === "POST" ? "create"
+            : options.method === "PATCH" ? "publish"
+              : path.endsWith("/releases/7") && fixture.state.release?.draft === false ? "verify" : "read";
+          return intercept(operation, () => fixture.api(path, options));
+        };
+        const upload = (id, asset) => intercept(`upload:${asset.name}`, () => fixture.upload(id, asset));
+        const job = async () => {
+          await prepareDraft(api, upload, candidate);
+          return publishDraft(api, candidate);
+        };
+        await assert.rejects(job(), /interrupted/u);
+        assert.equal(interrupted, true);
+        assert.equal((await job()).immutable, true);
+        assert.equal(fixture.state.writes.filter((write) => write.method === "POST").length, 1);
+        assert.equal(fixture.state.writes.filter((write) => write.method === "PATCH").length, 1);
+        assert.deepEqual([...fixture.state.uploads].sort(), candidate.assets.map((asset) => asset.name).sort());
+        const writes = structuredClone(fixture.state.writes);
+        const uploads = [...fixture.state.uploads];
+        await job();
+        assert.deepEqual(fixture.state.writes, writes);
+        assert.deepEqual(fixture.state.uploads, uploads);
+      });
+    }
+  }
+});
+
+test("completed recovery rejects inconsistent immutable state without writes", async (t) => {
+  const candidate = await candidateFixture();
+  for (const [name, change] of [
+    ["mutable publication", (state) => { state.release.immutable = false; }],
+    ["missing tag", (state) => { state.tag = null; }],
+    ["wrong source", (state) => { state.tag.object.sha = "f".repeat(40); }],
+    ["wrong provenance", (state) => { state.release.body = "unrelated publication"; }],
+    ["missing asset", (state) => { state.release.assets.pop(); }],
+    ["wrong digest", (state) => { state.release.assets[0].digest = `sha256:${"f".repeat(64)}`; }],
+    ["duplicate asset", (state) => { state.release.assets.push({ ...state.release.assets[0] }); }],
+    ["prerelease", (state) => { state.release.prerelease = true; }],
+    ["source outside main", (state) => { state.main = "f".repeat(40); state.comparison = "diverged"; }],
+  ]) {
+    await t.test(name, async () => {
+      const fixture = remoteFixture(candidate);
+      await prepareDraft(fixture.api, fixture.upload, candidate);
+      await publishDraft(fixture.api, candidate);
+      fixture.state.writes.length = 0;
+      fixture.state.uploads.length = 0;
+      change(fixture.state);
+      await assert.rejects(prepareDraft(fixture.api, fixture.upload, candidate),
+        /immutable|tag|source|binding|missing|conflicts|Duplicate|ancestor/u);
+      assert.deepEqual(fixture.state.writes, []);
+      assert.deepEqual(fixture.state.uploads, []);
+    });
+  }
+});
+
+test("npm preflight protects mutable drafts but cannot block completed reconciliation", async () => {
+  const candidate = await candidateFixture();
+  const fixture = remoteFixture(candidate);
+  let calls = 0;
+  const unavailable = async (version) => {
+    assert.equal(version, identity.version);
+    calls++;
+    throw new Error("npm registry unavailable");
+  };
+  await assert.rejects(prepareDraft(fixture.api, fixture.upload, candidate, unavailable), /registry unavailable/u);
+  assert.deepEqual(fixture.state.writes, []);
+  await prepareDraft(fixture.api, fixture.upload, candidate);
+  fixture.state.writes.length = 0;
+  await assert.rejects(prepareDraft(fixture.api, fixture.upload, candidate, unavailable), /registry unavailable/u);
+  assert.deepEqual(fixture.state.writes, []);
+  await publishDraft(fixture.api, candidate);
+  fixture.state.writes.length = 0;
+  await prepareDraft(fixture.api, fixture.upload, candidate, unavailable);
+  await publishDraft(fixture.api, candidate);
+  assert.equal(calls, 2);
+  assert.deepEqual(fixture.state.writes, []);
+  const source = await readFile(new URL("../scripts/release-transaction.mjs", import.meta.url), "utf8");
+  assert.match(source, /prepareDraft\(api, githubUploader\([^\n]+candidate, requireUnusedNpmVersion\)/u);
+});
+
 test("publisher fails closed for unknown, duplicate, changed, or published draft assets", async () => {
   const candidate = await candidateFixture();
   for (const change of [
@@ -231,7 +349,7 @@ test("publisher fails closed for unknown, duplicate, changed, or published draft
       name: asset.name, size: asset.size, digest: `sha256:${asset.sha256}`, state: "uploaded",
     }))]);
     change(fixture.state);
-    await assert.rejects(prepareDraft(fixture.api, fixture.upload, candidate), /Unexpected|Duplicate|conflicts|not a mutable draft/u);
+    await assert.rejects(prepareDraft(fixture.api, fixture.upload, candidate), /Unexpected|Duplicate|conflicts|tag does not match/u);
     assert.equal(fixture.state.uploads.length, 0);
     assert.equal(fixture.state.writes.length, 0);
   }
