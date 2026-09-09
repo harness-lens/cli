@@ -67,8 +67,9 @@ rebuilding. It rechecks npm and GitHub state, creates or reconciles a
 provenance-bound draft, uploads only missing assets, and compares the complete
 remote name/size/digest inventory with the manifest. Only an exact draft is
 published. It then requires `immutable=true`, the unchanged inventory, and the
-tag at the original source SHA. Conflicting or already-published state stops;
-assets are never clobbered. npm publication is explicitly ordered after this
+tag at the original source SHA. Conflicting state stops; a matching immutable
+release from the same run is reverified without mutation. Assets are never
+clobbered. npm publication is explicitly ordered after this
 postcondition. The remaining jobs propose a Homebrew PR when enabled. GHCR stays
 blocked until that exact formula merges and its macOS CI passes.
 

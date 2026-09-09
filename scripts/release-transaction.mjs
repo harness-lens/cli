@@ -261,11 +261,30 @@ async function verifyTagIfPresent(api, manifest) {
   return ref;
 }
 
-export async function prepareDraft(api, upload, candidate) {
+async function verifyPublishedRelease(api, candidate, releaseId) {
+  const { manifest } = candidate;
+  const release = await api(`${manifest.repository}/releases/${releaseId}`);
+  requireThat(release.draft === false && release.prerelease === false && release.immutable === true,
+    "Published release did not become immutable");
+  verifyReleaseBinding(release, candidate);
+  verifyRemoteAssets(release.assets ?? [], candidate.assets);
+  const ref = await tagRef(api, manifest.repository, manifest.tag);
+  requireThat(ref && await resolveTagCommit(api, manifest.repository, ref) === manifest.sourceSha,
+    "Published release tag does not match the reviewed source SHA");
+  return release;
+}
+
+export async function prepareDraft(api, upload, candidate, checkUnusedVersion = async () => {}) {
   const { manifest } = candidate;
   await verifySourceOnMain(api, manifest.repository, manifest.sourceSha);
   let release = await findRelease(api, manifest.repository, manifest.tag);
   const ref = await verifyTagIfPresent(api, manifest);
+  // A job retry starts here even if GitHub accepted the earlier publication.
+  // Reconcile only an exact immutable release, without uploads or registry writes.
+  if (release?.draft === false) return verifyPublishedRelease(api, candidate, release.id);
+  // The CLI supplies the npm preflight before any mutable draft operation.
+  // Completed release recovery must not depend on npm availability or absence.
+  await checkUnusedVersion(manifest.version);
   if (!release) {
     requireThat(ref === null, `Release tag ${manifest.tag} exists without the bound draft`);
     release = await api(`${manifest.repository}/releases`, { method: "POST", body: {
@@ -306,15 +325,7 @@ export async function publishDraft(api, candidate) {
       body: { draft: false },
     });
   }
-  release = await api(`${manifest.repository}/releases/${release.id}`);
-  requireThat(release.draft === false && release.prerelease === false && release.immutable === true,
-    "Published release did not become immutable");
-  verifyReleaseBinding(release, candidate);
-  verifyRemoteAssets(release.assets ?? [], candidate.assets);
-  const ref = await tagRef(api, manifest.repository, manifest.tag);
-  requireThat(ref && await resolveTagCommit(api, manifest.repository, ref) === manifest.sourceSha,
-    "Published release tag does not match the reviewed source SHA");
-  return release;
+  return verifyPublishedRelease(api, candidate, release.id);
 }
 
 function identityFromEnvironment() {
@@ -353,8 +364,7 @@ async function main() {
   requireThat(JSON.stringify(releaseIdentity(candidate.manifest)) === JSON.stringify(identity),
     "Candidate identity differs from this workflow run");
   if (command === "prepare") {
-    await requireUnusedNpmVersion(identity.version);
-    await prepareDraft(api, githubUploader(process.env.GH_TOKEN, identity.repository), candidate);
+    await prepareDraft(api, githubUploader(process.env.GH_TOKEN, identity.repository), candidate, requireUnusedNpmVersion);
   }
   if (command === "publish") await publishDraft(api, candidate);
 }
