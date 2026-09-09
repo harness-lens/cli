@@ -16,7 +16,9 @@ merged. Required macOS checks and formula provenance must remain enforced.
 ## Correction and verification
 
 The generator uses `Hardware::CPU.arm?` to choose one matching archive URL/hash
-pair. Both macOS architectures run Homebrew parsing, style and strict audit on
+pair. Strict audit also rejects the redundant explicit version. Homebrew now
+infers it from the URL; downgrade protection requires both architecture URLs to
+agree on the same canonical tag/archive version before making any writes. Both macOS architectures run Homebrew parsing, style and strict audit on
 PRs and on the exact candidate formula before release assembly/publication.
 The PR regression also inspects Homebrew's resolved URL/hash on each native
 architecture. Fixture checksums are synthetic and are never installed or

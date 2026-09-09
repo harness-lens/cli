@@ -66,7 +66,6 @@ export function renderPackages(version, checksumContents) {
 class HarnessLens < Formula
   desc "Evidence-backed local analysis of coding-agent harnesses"
   homepage "https://github.com/harness-lens/cli"
-  version "${version}"
   license "MPL-2.0"
 
   if Hardware::CPU.arm?
