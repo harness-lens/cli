@@ -25,7 +25,8 @@ unknown.
 - Release immutability: `REQUIRED`
 - Stable-tag ruleset and automation bypass: `REQUIRED`
 - `release` environment protection: `REQUIRED`
-- npm trusted publisher (`native-release.yml`, `npm`, allow publish): `REQUIRED`
+- npm trusted publisher (`native-release.yml`, `npm`, direct publish allowed,
+  bypass-2FA tokens disallowed): `REQUIRED`
 - Version absence checks: `REQUIRED`
 
 ## Verification results

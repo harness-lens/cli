@@ -65,6 +65,24 @@ reusable `workflow_call` performs publication; do not configure `publish.yml` as
 the trusted filename. Record the npm settings screen because npm does not test
 the OIDC relationship when it is saved.
 
+Direct `npm publish` permission is an intentional project decision. The npm job
+runs only after protected approval and after GitHub reports the complete,
+reviewed release as immutable. It publishes that run's exact retained tarball
+through short-lived OIDC credentials; traditional bypass-2FA tokens remain
+disallowed. npm's stronger staged-only option is not compatible with the
+current transaction: leaving `Allow npm publish` unchecked would reject the
+workflow's direct publish command after the GitHub release already exists.
+
+Do not switch the npm setting to staged-only as an isolated configuration
+change. Such a migration requires a reviewed redesign using `npm stage publish`,
+npm CLI 11.15.0 or later, an explicit maintainer review and 2FA approval step,
+post-approval registry reconciliation, and downstream jobs that remain blocked
+until the staged version is publicly observable. See npm's
+[trusted-publisher](https://docs.npmjs.com/trusted-publishers/) and
+[staged-publishing](https://docs.npmjs.com/staged-publishing/) documentation.
+Never record npm session data, tokens, private keys, recovery codes, or 2FA
+values in release evidence.
+
 Capture a read-only GitHub settings audit before the sandbox rehearsal and the
 production run:
 

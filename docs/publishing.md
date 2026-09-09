@@ -17,6 +17,15 @@ calling workflow for `workflow_call`, so configuring `publish.yml` would reject
 the OIDC claim. Both caller and reusable workflow grant `id-token: write`.
 Never commit npm tokens or publish a CLI version interactively.
 
+The direct-publish permission is deliberate. Publication occurs only after the
+protected review of the retained candidate and the immutable GitHub release
+postconditions, and OIDC avoids a long-lived npm publishing token. Keep
+traditional bypass-2FA tokens disallowed. Do not leave `Allow npm publish`
+unchecked with the current workflow: that enables staged-only publication while
+the implementation invokes `npm publish`. Moving to staged publishing is a
+separate workflow and runbook change, not a settings-only hardening step; follow
+the decision and migration requirements in the release runbook.
+
 Follow [`distribution.md`](distribution.md): dispatch once from `main`, review
 the exact retained candidate at the protected `release` environment, and only
 then approve publication. The native workflow publishes GitHub first, verifies
