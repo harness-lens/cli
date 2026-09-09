@@ -8,6 +8,14 @@ on:
 permissions:
   contents: read
 jobs:
+  workflow-lint:
+    name: workflow-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with: { go-version: "1.25.x" }
+      - run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -color
   typescript:
     runs-on: ubuntu-latest
     strategy:

@@ -103,10 +103,11 @@ gh pr checks PR_NUMBER --repo harness-lens/cli --watch
 ```
 
 The recorded `headRefOid` must equal the reviewed branch SHA. Require successful
-results for all TypeScript matrix jobs (Node 20, 22, and 24), Rust, the scanner
-container, the language placeholders, and CodeQL. Inspect any failure before
-rerunning it; do not merge based on a stale successful run from an older SHA.
-The Actions page must not show a release workflow run caused by the pull request.
+results for pinned workflow lint, all TypeScript matrix jobs (Node 20, 22, and
+24), Rust, the scanner container, the language placeholders, and CodeQL. Inspect
+any failure before rerunning it; do not merge based on a stale successful run
+from an older SHA. The Actions page must not show a release workflow run caused
+by the pull request.
 
 After merge, fetch `main`, record the resulting remote SHA, and verify the
 release files on `main` rather than assuming that the pull request button
