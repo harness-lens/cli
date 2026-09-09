@@ -84,8 +84,8 @@ Harness Lens App on the tap with Contents write, Pull requests write, and
 Metadata read. Configure the CLI repository:
 
 - repository variable `HOMEBREW_TAP_PUBLISH_ENABLED=false` during preparation;
-- repository secret `HARNESS_LENS_APP_ID`;
-- repository secret `HARNESS_LENS_APP_PRIVATE_KEY`.
+- `release` environment secret `HARNESS_LENS_APP_ID`;
+- `release` environment secret `HARNESS_LENS_APP_PRIVATE_KEY`.
 
 The switch is a variable, not a secret. Enable it only after the workflow is
 merged and the repository controls and sandbox rehearsal are complete.
