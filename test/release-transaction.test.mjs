@@ -41,8 +41,8 @@ async function candidateFixture() {
 
 function remoteFixture(candidate) {
   const state = {
-    immutable: true,
     main: identity.sourceSha,
+    publishImmutable: true,
     tag: null,
     release: null,
     writes: [],
@@ -51,7 +51,6 @@ function remoteFixture(candidate) {
   const api = async (path, options = {}) => {
     if (options.method) state.writes.push({ path, ...options });
     const local = path.replace(`${REPOSITORY}/`, "");
-    if (local === "immutable-releases") return { enabled: state.immutable };
     if (local === "git/ref/heads/main") return { object: { type: "commit", sha: state.main } };
     if (local.startsWith("compare/")) return { status: state.comparison ?? "ahead" };
     if (local === `git/ref/tags/${identity.tag}`) return state.tag;
@@ -71,7 +70,7 @@ function remoteFixture(candidate) {
       return state.release;
     }
     if (local === "releases/7" && options.method === "PATCH") {
-      state.release = { ...state.release, draft: false, immutable: true };
+      state.release = { ...state.release, draft: false, immutable: state.publishImmutable };
       state.tag = { object: { type: "commit", sha: identity.sourceSha } };
       return state.release;
     }
@@ -135,14 +134,11 @@ test("candidate verification requires SHA256SUMS to cover every payload exactly"
   }
 });
 
-test("new-release preflight is read-only and rejects every conflicting remote state", async () => {
+test("new-release preflight is read-only and rejects every conflicting release identity", async () => {
   const candidate = await candidateFixture();
   const { state, api } = remoteFixture(candidate);
   await preflightNewRelease(api, identity);
   assert.equal(state.writes.length, 0);
-  state.immutable = false;
-  await assert.rejects(preflightNewRelease(api, identity), /immutability/u);
-  state.immutable = true;
   state.comparison = "diverged";
   state.main = "c".repeat(40);
   await assert.rejects(preflightNewRelease(api, identity), /ancestor/u);
@@ -270,6 +266,17 @@ test("publication crosses the immutable boundary only after an exact complete dr
   state.writes.length = 0;
   await publishDraft(api, candidate);
   assert.deepEqual(state.writes, []);
+
+  const mutable = remoteFixture(candidate);
+  mutable.state.publishImmutable = false;
+  await prepareDraft(mutable.api, mutable.upload, candidate);
+  await assert.rejects(publishDraft(mutable.api, candidate), /did not become immutable/u);
+});
+
+test("runtime transaction uses no administration-only immutable-release settings endpoint", async () => {
+  const source = await readFile(new URL("../scripts/release-transaction.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /immutable-releases/u);
+  assert.match(source, /release\.immutable === true/u);
 });
 
 test("remote inventory verification requires exact names, sizes, states, and digests", () => {

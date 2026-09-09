@@ -151,14 +151,19 @@ free-form SHA input. Its preflight must fail before building unless:
 - the SHA is the accepted commit on `main`;
 - all source and lockfile versions equal the request;
 - the stable tag and every release state are absent;
-- the npm version is absent; and
-- GitHub release immutability is enabled.
+- the npm version is absent.
 
-The recorded operator audit must separately establish required-check success,
-environment protection, tag rules, and absence from crates.io, GHCR, or any
-other enabled destination. Those administration and cross-registry facts are
-not all readable by the job's deliberately least-privileged `GITHUB_TOKEN`.
-Their absence from the automated preflight is not permission to skip them.
+The recorded operator audit must separately establish release immutability,
+required-check success, environment protection, tag rules, and absence from
+crates.io, GHCR, or any other enabled destination. GitHub's immutable-release
+settings endpoint requires repository Administration permission, which the
+deliberately least-privileged `GITHUB_TOKEN` does not receive. Do not inject an
+administration credential merely to repeat this settings check inside the job.
+The publisher instead requires GitHub's resulting release object to report
+`immutable=true` before any downstream publication can begin. These
+administration and cross-registry facts not being readable by the automated
+preflight is not permission to skip the recorded operator audit. See GitHub's
+[repository API permission requirements](https://docs.github.com/en/rest/repos/repos#check-if-immutable-releases-are-enabled-for-a-repository).
 
 ### 3. Build and verify before mutation
 
@@ -199,7 +204,9 @@ candidate already stored by this run.
 
 After approval, the publisher must use the retained candidate without rebuilding:
 
-1. Recheck all preflight conditions to detect races.
+1. Recheck the least-privilege GitHub and npm preflight conditions to detect
+   races; rely on the immediately preceding recorded administration audit for
+   the immutable-release setting.
 2. Create the stable tag and draft release for the exact source SHA using the
    protected automation identity.
 3. Upload the candidate assets.
@@ -240,6 +247,7 @@ continuation constraints.
 | Conflicting tag SHA or draft metadata | Stop for maintainer investigation. |
 | Existing asset with a different digest | Stop; never use `--clobber`. |
 | Existing published release | Stop; never rebuild or try to modify it. |
+| Published release reports `immutable=false` | Stop all downstream publication and begin incident review; never replace its assets or tag. |
 | Existing registry version | Stop; registries and stable versions are immutable. |
 | Expired or missing workflow artifact | Stop; prepare a reviewed new version. |
 | Ambiguous API response | Read current state and reconcile; do not repeat a mutation blindly. |

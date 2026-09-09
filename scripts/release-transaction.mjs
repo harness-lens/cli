@@ -201,14 +201,8 @@ async function verifySourceOnMain(api, repository, sourceSha) {
   requireThat(comparison.status === "ahead", "Release source is not an ancestor of current main");
 }
 
-async function verifyImmutability(api, repository) {
-  const setting = await api(`${repository}/immutable-releases`);
-  requireThat(setting.enabled === true, "Release immutability must be enabled");
-}
-
 export async function preflightNewRelease(api, identityValues) {
   const identity = releaseIdentity(identityValues);
-  await verifyImmutability(api, identity.repository);
   await verifySourceOnMain(api, identity.repository, identity.sourceSha);
   requireThat(await tagRef(api, identity.repository, identity.tag) === null, `Release tag ${identity.tag} already exists`);
   requireThat(await findRelease(api, identity.repository, identity.tag) === null, `Release ${identity.tag} already exists`);
@@ -269,7 +263,6 @@ async function verifyTagIfPresent(api, manifest) {
 
 export async function prepareDraft(api, upload, candidate) {
   const { manifest } = candidate;
-  await verifyImmutability(api, manifest.repository);
   await verifySourceOnMain(api, manifest.repository, manifest.sourceSha);
   let release = await findRelease(api, manifest.repository, manifest.tag);
   const ref = await verifyTagIfPresent(api, manifest);
@@ -301,7 +294,6 @@ export async function prepareDraft(api, upload, candidate) {
 
 export async function publishDraft(api, candidate) {
   const { manifest } = candidate;
-  await verifyImmutability(api, manifest.repository);
   await verifySourceOnMain(api, manifest.repository, manifest.sourceSha);
   let release = await findRelease(api, manifest.repository, manifest.tag);
   requireThat(release, `Draft release ${manifest.tag} is missing`);
