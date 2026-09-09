@@ -323,4 +323,5 @@ test("workflow has one production trigger and one protected contents writer", as
   assert.equal((publisher.match(/RELEASE_RUN_ATTEMPT: \$\{\{ needs\.assemble-release\.outputs\.candidate_attempt \}\}/g) ?? []).length, 3);
   assert.ok(publisher.indexOf("prepare") < publisher.indexOf("publish"));
   assert.match(workflow, /publish-npm:[\s\S]*needs: \[metadata, assemble-release, publish-release\][\s\S]*uses: \.\/\.github\/workflows\/publish\.yml/u);
+  assert.match(workflow, /publish-npm:[\s\S]*if: github\.repository == 'harness-lens\/cli'[\s\S]*uses: \.\/\.github\/workflows\/publish\.yml/u);
 });

@@ -387,6 +387,7 @@ jobs:
   publish-npm:
     name: Publish npm from the same reviewed source
     needs: [metadata, assemble-release, publish-release]
+    if: github.repository == 'harness-lens/cli'
     uses: ./.github/workflows/publish.yml
     with:
       candidate_attempt: ${{ needs.assemble-release.outputs.candidate_attempt }}
