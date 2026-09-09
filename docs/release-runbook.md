@@ -9,11 +9,11 @@ recoverable before the irreversible immutable-publication boundary.
 
 ## Current status
 
-The corrective workflow and tests implement the repository-side one-run
-transaction. They are not production-ready until merged and the tag rules,
-protected environment, npm trusted publisher, and other repository controls are
-verified and recorded. Do not create another stable tag or GitHub release until
-an immutable release-sandbox rehearsal has also passed.
+The corrective workflow and tests implementing the repository-side one-run
+transaction are merged. The tag rules, protected environments, npm trusted
+publisher, and other repository controls must still be verified and recorded
+before each production run. Do not create another stable tag or GitHub release
+until an immutable release-sandbox rehearsal has also passed.
 
 Tags `v0.0.3` and `v0.0.4` are consumed and must never be recreated or reused.
 Release `v0.0.4` is immutable and contains no assets. See the
