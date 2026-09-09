@@ -69,17 +69,15 @@ class HarnessLens < Formula
   version "${version}"
   license "MPL-2.0"
 
-  depends_on :macos
-
-  on_arm do
+  if Hardware::CPU.arm?
     url "${releaseUrl(version, targets.macosArm64)}"
     sha256 "${macosArm64Sha}"
-  end
-
-  on_intel do
+  else
     url "${releaseUrl(version, targets.macosX64)}"
     sha256 "${macosX64Sha}"
   end
+
+  depends_on :macos
 
   def install
     bin.install "harness-lens"
