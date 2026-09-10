@@ -25,6 +25,42 @@ jobs:
       - uses: actions/setup-node@v7
         with: { node-version: "${{ matrix.node-version }}" }
       - uses: ./.github/actions/npm-candidate
+  npm-launcher:
+    name: npm launcher (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, node: 20 }
+          - { os: ubuntu-24.04, node: 22 }
+          - { os: ubuntu-24.04, node: 24 }
+          - { os: windows-2025, node: 24 }
+          - { os: macos-15, node: 24 }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - run: npm ci --ignore-scripts
+      - name: Pack and install the unscoped launcher
+        shell: bash
+        run: |
+          mkdir npm-package
+          npm pack --pack-destination npm-package
+          npm run launcher:pack
+          version="$(node -p 'JSON.parse(require("fs").readFileSync("package.json", "utf8")).version')"
+          npm run launcher:smoke -- "npm-package/harness-lens-cli-${version}.tgz" "launcher-package/harness-lens-${version}.tgz" "$version"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: npm-launcher-${{ matrix.os }}-${{ matrix.node }}
+          path: launcher-package/*.tgz
+          if-no-files-found: error
+          retention-days: 14
   rust:
     runs-on: ubuntu-latest
     defaults:

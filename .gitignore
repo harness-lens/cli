@@ -1,6 +1,7 @@
 node_modules/
 dist/
 *.tgz
+launcher-package/
 .env
 .DS_Store
 coverage/

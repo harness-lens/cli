@@ -62,6 +62,11 @@ cargo run -- --version
 
 ## Native releases
 
+The unscoped `harness-lens` npm launcher is being prepared in this repository.
+Public installation remains `npx @harness-lens/cli` until registry acceptance.
+See the [npm-first distribution priorities](docs/distribution-priorities.md)
+for candidate testing and the Chocolatey, Snap, and NuGet sequence.
+
 The release pipeline builds native macOS, Windows, and Linux archives with
 SHA-256 checksums, CycloneDX SBOMs, and signed GitHub attestations. Those same
 reviewed archives drive the Homebrew, WinGet, Scoop, and Chocolatey packages;
