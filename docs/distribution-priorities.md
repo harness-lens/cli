@@ -54,11 +54,15 @@ with the native Rust implementation.
 CI packs and installs the candidates on Linux with Node 20/22/24 and on
 Windows/macOS with Node 24. The smoke test serves the retained CLI tarball
 through a temporary localhost registry so it can test a future version before
-publication. Core metadata/archive requests use the official npm registry.
+publication. Core metadata/archive requests use fixed URLs for the minimum Core
+version declared by the CLI, from the official npm registry; evidence reports
+that tested version. Production dependency resolution still follows the scoped
+CLI's manifest.
 Installation uses isolated directories and a temporary global prefix. It
 checks both executable providers permitted by npm hoisting, the wrapper itself,
 arguments containing spaces, scan equivalence, failure exit codes, uninstall,
-and unchanged candidate digests. This is candidate acceptance, not proof of
+and unchanged candidate digests. A separate empty consumer/cache verifies fresh
+npx-style download and execution. This is candidate acceptance, not proof of
 public registry ownership or public npx resolution.
 
 Before public availability:

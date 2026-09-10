@@ -20,12 +20,19 @@ const cliBytes = await readFile(cliArchive);
 const launcherBytes = await readFile(launcherArchive);
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const integrity = `sha512-${createHash("sha512").update(cliBytes).digest("base64")}`;
+const launcherIntegrity = `sha512-${createHash("sha512").update(launcherBytes).digest("base64")}`;
 const source = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 assert.equal(source.version, version);
+const coreVersion = source.dependencies["@harness-lens/core"].replace(/^\^/u, "");
+assert.match(coreVersion, /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u);
+const coreArchivePath = `/@harness-lens/core/-/core-${coreVersion}.tgz`;
+const coreMetadataUrl = `https://registry.npmjs.org/@harness-lens%2Fcore/${coreVersion}`;
+const coreArchiveUrl = `https://registry.npmjs.org/@harness-lens/core/-/core-${coreVersion}.tgz`;
 const directory = await realpath(await mkdtemp(join(tmpdir(), "harness-lens-launcher-consumer-")));
 const prefix = join(directory, "global");
 const globalBin = process.platform === "win32" ? prefix : join(prefix, "bin");
 const consumer = join(directory, "consumer");
+const freshConsumer = join(directory, "fresh-npx");
 const userconfig = join(directory, "npmrc");
 
 // Serve the candidate dependency under its future registry identity. This lets
@@ -34,6 +41,8 @@ const userconfig = join(directory, "npmrc");
 // metadata and tarballs are proxied, without credentials, to the npm registry.
 let registry;
 let candidateDownloads = 0;
+let launcherDownloads = 0;
+let launcherMetadata;
 const server = createServer(async (request, response) => {
   try {
     assert.equal(request.method, "GET");
@@ -41,19 +50,38 @@ const server = createServer(async (request, response) => {
     if (path === "/cli.tgz") {
       candidateDownloads += 1;
       response.writeHead(200, { "Content-Type": "application/octet-stream" }).end(cliBytes);
+    } else if (path === "/launcher.tgz") {
+      launcherDownloads += 1;
+      response.writeHead(200, { "Content-Type": "application/octet-stream" }).end(launcherBytes);
+    } else if (path === "/harness-lens" && launcherMetadata) {
+      response.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({
+        name: launcherMetadata.name,
+        "dist-tags": { latest: version },
+        versions: { [version]: {
+          ...launcherMetadata, dist: { tarball: `${registry}/launcher.tgz`, integrity: launcherIntegrity },
+        } },
+      }));
     } else if (path === "/@harness-lens/cli") {
       response.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({
         name: source.name,
         "dist-tags": { latest: version },
         versions: { [version]: { ...source, dist: { tarball: `${registry}/cli.tgz`, integrity } } },
       }));
-    } else if (path === "/@harness-lens/core" || /^\/@harness-lens\/core\/-\/core-[0-9]+\.[0-9]+\.[0-9]+\.tgz$/u.test(path)) {
-      const upstream = await fetch(`https://registry.npmjs.org${path}`, {
+    } else if (path === "/@harness-lens/core") {
+      const upstream = await fetch(coreMetadataUrl, {
         signal: AbortSignal.timeout(30_000),
       });
-      response.writeHead(upstream.status, {
-        "Content-Type": path.endsWith(".tgz") ? "application/octet-stream" : "application/json",
-      }).end(Buffer.from(await upstream.arrayBuffer()));
+      assert.ok(upstream.ok, "Core metadata lookup failed");
+      const metadata = await upstream.json();
+      assert.equal(metadata.name, "@harness-lens/core");
+      assert.equal(metadata.version, coreVersion);
+      response.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({
+        name: metadata.name, "dist-tags": { latest: coreVersion }, versions: { [coreVersion]: metadata },
+      }));
+    } else if (path === coreArchivePath) {
+      const upstream = await fetch(coreArchiveUrl, { signal: AbortSignal.timeout(30_000) });
+      response.writeHead(upstream.status, { "Content-Type": "application/octet-stream" })
+        .end(Buffer.from(await upstream.arrayBuffer()));
     } else {
       response.writeHead(404).end();
     }
@@ -68,7 +96,7 @@ const node = async (args, cwd = consumer) => {
     env: {
       ...process.env, NODE_PATH: "", NODE_ENV: "production",
       npm_config_registry: registry, npm_config_userconfig: userconfig,
-      npm_config_cache: join(directory, "cache"), npm_config_prefix: prefix,
+      npm_config_cache: join(directory, cwd === freshConsumer ? "npx-cache" : "cache"), npm_config_prefix: prefix,
       PATH: `${globalBin}${delimiter}${process.env.PATH ?? ""}`,
     },
     stdio: ["ignore", "pipe", "pipe"], timeout: 120_000,
@@ -89,12 +117,14 @@ try {
   await once(server, "listening");
   registry = `http://127.0.0.1:${server.address().port}`;
   await mkdir(consumer);
+  await mkdir(freshConsumer);
   await writeFile(userconfig, "");
   await writeFile(join(consumer, "package.json"), JSON.stringify({
     name: "launcher-consumer", private: true, scripts: { "global-smoke": "harness-lens" },
   }));
   success(await npm(["install", "--ignore-scripts", "--omit=dev", "--no-audit", "--no-fund", launcherArchive]));
   const manifest = JSON.parse(await readFile(join(consumer, "node_modules/harness-lens/package.json"), "utf8"));
+  launcherMetadata = manifest;
   assert.equal(manifest.name, "harness-lens");
   assert.equal(manifest.version, version);
   assert.deepEqual(manifest.dependencies, { "@harness-lens/cli": version });
@@ -149,6 +179,15 @@ try {
   assert.ok(!Number.isNaN(Date.parse(defaultGeneratedAt)));
   assert.deepEqual(defaultReport, report);
   assert.equal(defaultScan.status, report.findings.some((finding) => finding.severity === "fail") ? 1 : 0);
+  // Exercise npx's fresh download path: this directory has no installation and
+  // the global prefix is still empty. npm exec is the implementation of npx.
+  const fresh = await npm(["exec", "--yes", "--", "harness-lens", "scan", fixture, "--json"], freshConsumer);
+  assert.ok(fresh.stdout.trim(), fresh.stderr);
+  const { generatedAt: freshGeneratedAt, ...freshReport } = JSON.parse(fresh.stdout);
+  assert.ok(!Number.isNaN(Date.parse(freshGeneratedAt)));
+  assert.deepEqual(freshReport, report);
+  assert.equal(fresh.status, report.findings.some((finding) => finding.severity === "fail") ? 1 : 0);
+  assert.ok(launcherDownloads > 0, "Fresh npx did not download the launcher candidate");
   success(await npm(["install", "--global", "--ignore-scripts", "--no-audit", "--no-fund", launcherArchive]));
   // Remove the local installation before exercising global command resolution.
   success(await npm(["uninstall", "--ignore-scripts", "--no-audit", "--no-fund", "harness-lens"]));
@@ -163,10 +202,10 @@ try {
   assert.equal(hash(await readFile(cliArchive)), hash(cliBytes));
   assert.equal(hash(await readFile(launcherArchive)), hash(launcherBytes));
   console.log(JSON.stringify({
-    package: manifest.name, version, node: process.version, platform: process.platform,
+    package: manifest.name, version, node: process.version, platform: process.platform, core: coreVersion,
     sha256: hash(launcherBytes), cliSha256: hash(cliBytes),
-    localInstall: "passed", globalInstall: "passed", npmExec: "passed", invalidCommand: "passed",
-    functionalScans: 5, deterministicReportsEqual: true, workingDirectory: "passed",
+    localInstall: "passed", globalInstall: "passed", npmExec: "passed", freshNpx: "passed", invalidCommand: "passed",
+    functionalScans: 6, deterministicReportsEqual: true, workingDirectory: "passed",
     uninstall: "passed", tarballsUnchanged: true,
     comparisonExcludes: ["generatedAt"],
   }));
