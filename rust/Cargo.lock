@@ -10,8 +10,8 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
 name = "harness-lens"
-version = "0.0.1"
-source = "git+https://github.com/harness-lens/sdk.git?rev=9dc39f3ad9d5837be4f69ba4553d39bee4630225#9dc39f3ad9d5837be4f69ba4553d39bee4630225"
+version = "0.0.2"
+source = "git+https://github.com/harness-lens/sdk.git?rev=c11b8683e9c021ee8bc8befb94623ce825146f4b#c11b8683e9c021ee8bc8befb94623ce825146f4b"
 dependencies = [
  "harness-lens-config",
  "harness-lens-core",
@@ -27,8 +27,8 @@ dependencies = [
 
 [[package]]
 name = "harness-lens-config"
-version = "0.0.1"
-source = "git+https://github.com/harness-lens/sdk.git?rev=9dc39f3ad9d5837be4f69ba4553d39bee4630225#9dc39f3ad9d5837be4f69ba4553d39bee4630225"
+version = "0.0.2"
+source = "git+https://github.com/harness-lens/sdk.git?rev=c11b8683e9c021ee8bc8befb94623ce825146f4b#c11b8683e9c021ee8bc8befb94623ce825146f4b"
 dependencies = [
  "harness-lens-core",
  "toml 1.1.5+spec-1.1.0",
@@ -36,12 +36,16 @@ dependencies = [
 
 [[package]]
 name = "harness-lens-core"
-version = "0.0.1"
-source = "git+https://github.com/harness-lens/core.git?rev=958564df56c85ae04c84506b594900758e63ac6a#958564df56c85ae04c84506b594900758e63ac6a"
+version = "0.0.2"
+source = "git+https://github.com/harness-lens/core.git?rev=2a8e916fcf73cbeb1792358b5726e23472792721#2a8e916fcf73cbeb1792358b5726e23472792721"
 dependencies = [
  "serde",
+ "serde_json",
  "serde_yaml",
  "toml 0.9.12+spec-1.1.0",
+ "unicode-casefold",
+ "unicode-normalization",
+ "unicode-properties",
 ]
 
 [[package]]
@@ -173,6 +177,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "tinyvec"
+version = "1.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4cf0ded5c4e56918d8f8a339e1bb67d038d3bc6d144ac407904015ba2e4cde9b"
+dependencies = [
+ "tinyvec_macros",
+]
+
+[[package]]
+name = "tinyvec_macros"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
+
+[[package]]
 name = "toml"
 version = "0.9.12+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -236,10 +255,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d56353a2a665ad0f41a421187180aab746c8c325620617ad883a99a1cbe66d2"
 
 [[package]]
+name = "unicode-casefold"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7f66b1c8f8caa2ab31dc6d3f35386f16efdab89668f93411e565ac368908e8f"
+
+[[package]]
 name = "unicode-ident"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
+
+[[package]]
+name = "unicode-normalization"
+version = "0.1.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5033c97c4262335cded6d6fc3e5c18ab755e1a3dc96376350f3d8e9f009ad956"
+dependencies = [
+ "tinyvec",
+]
+
+[[package]]
+name = "unicode-properties"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e70f2a8b45122e719eb623c01822704c4e0907e7e426a05927e1a1cfff5b75d0"
 
 [[package]]
 name = "unsafe-libyaml"
