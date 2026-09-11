@@ -22,7 +22,7 @@ name = "harness-lens-cli"
 version = "0.0.5"
 dependencies = [
  "harness-lens",
- "serde_json",
+ "harness-lens-terminal",
 ]
 
 [[package]]
@@ -46,6 +46,15 @@ dependencies = [
  "unicode-casefold",
  "unicode-normalization",
  "unicode-properties",
+]
+
+[[package]]
+name = "harness-lens-terminal"
+version = "0.0.1"
+dependencies = [
+ "harness-lens",
+ "harness-lens-core",
+ "serde_json",
 ]
 
 [[package]]

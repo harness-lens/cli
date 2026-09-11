@@ -6,6 +6,7 @@
 use std::path::PathBuf;
 
 use harness_lens::{Scanner, load_for_root};
+use harness_lens_terminal::{OutputFormat, render};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -49,36 +50,15 @@ fn run(arguments: impl Iterator<Item = String>) -> Result<(), String> {
         .scan(&root, &config)
         .map_err(|error| error.to_string())?;
 
-    if json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?
-        );
+    let format = if json {
+        OutputFormat::Json
     } else {
-        let summary = report.summary();
-        println!(
-            "Harness Lens found {} harness source(s) under {}",
-            summary.sources,
-            report.root.display()
-        );
-        for source in &report.sources {
-            println!("- {}", source.path.display());
-        }
-        for metric in &report.metrics {
-            if metric.name.starts_with("harness.total_")
-                || metric.name.starts_with("harness.input_cost_")
-                || metric.name == "harness.exact_duplicate_lines_or_paragraphs"
-                || metric.name == "harness.large_sources"
-                || metric.name == "harness.over_elaborated_sources"
-            {
-                let unit = metric.unit.as_deref().unwrap_or("");
-                println!("{}: {} {}", metric.name, metric.value, unit);
-            }
-        }
-        if summary.diagnostics > 0 {
-            println!("{} warning/error finding(s)", summary.diagnostics);
-        }
-    }
+        OutputFormat::Human
+    };
+    println!(
+        "{}",
+        render(&report, format).map_err(|error| error.to_string())?
+    );
 
     Ok(())
 }

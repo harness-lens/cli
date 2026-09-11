@@ -3,6 +3,9 @@
 
 # Publishing
 
+Publish and verify `harness-lens-terminal` before packaging the Rust CLI. Never
+use CLI release automation to claim an empty library version.
+
 > [!CAUTION]
 > Do not create or publish a CLI release from the GitHub Releases UI. Follow the
 > [CLI release runbook](release-runbook.md). Merge the workflow controls and
