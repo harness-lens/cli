@@ -129,7 +129,7 @@ jobs:
           subject-path: dist/harness-lens-v${{ needs.metadata.outputs.version }}-${{ matrix.target }}.${{ matrix.archive }}
           sbom-path: dist/harness-lens-v${{ needs.metadata.outputs.version }}-${{ matrix.target }}.${{ matrix.archive }}.cdx.json
       - name: Preserve native artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-${{ matrix.target }}
           path: dist/harness-lens-v${{ needs.metadata.outputs.version }}-${{ matrix.target }}.*
@@ -154,7 +154,7 @@ jobs:
       - name: Build and qualify the npm candidate
         uses: ./.github/actions/npm-candidate
       - name: Preserve reviewed npm tarball
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: npm-package
           path: npm-package/*.tgz
@@ -183,14 +183,14 @@ jobs:
           node scripts/generate-distribution-packages.mjs "${{ needs.metadata.outputs.version }}" dist/SHA256SUMS dist/generated
           ruby -c dist/generated/homebrew/Formula/harness-lens.rb
       - name: Preserve checksums
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-checksums
           path: dist/SHA256SUMS
           if-no-files-found: error
           retention-days: 30
       - name: Preserve Homebrew formula
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: homebrew-tap
           path: dist/generated/homebrew
@@ -278,7 +278,7 @@ jobs:
           choco pack harness-lens.nuspec --output-directory .
           Pop-Location
       - name: Preserve Windows packages
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-packages
           path: |
@@ -350,7 +350,7 @@ jobs:
         with:
           subject-path: release/RELEASE-MANIFEST.json
       - name: Preserve complete reviewed candidate
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: harness-lens-${{ needs.metadata.outputs.tag }}-release
           path: release
